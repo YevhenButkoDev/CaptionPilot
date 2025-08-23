@@ -1,0 +1,222 @@
+// Minimal IndexedDB wrapper for storing a library handle and draft posts
+// Requires browser support for File System Access API and structured cloning of handles
+
+export type DraftPost = {
+  id: string;
+  createdAt: number;
+  caption: string;
+  images: { fileName: string; mimeType: string; size: number }[];
+  position?: number; // lower comes first; fallback to createdAt desc if missing
+};
+
+export type Project = {
+  id: string;
+  name: string;
+  description: string;
+  images: { fileName: string; mimeType: string; size: number }[];
+  createdAt: number;
+  position?: number; // lower comes first; fallback to createdAt desc if missing
+};
+
+const DB_NAME = "inst-automation";
+const DB_VERSION = 2; // Increment version for new store
+const STORE_KV = "kv";
+const STORE_POSTS = "draftPosts";
+const STORE_PROJECTS = "projects";
+
+function openDb(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(STORE_KV)) {
+        db.createObjectStore(STORE_KV, { keyPath: "key" });
+      }
+      if (!db.objectStoreNames.contains(STORE_POSTS)) {
+        const store = db.createObjectStore(STORE_POSTS, { keyPath: "id" });
+        store.createIndex("createdAt", "createdAt", { unique: false });
+      }
+      if (!db.objectStoreNames.contains(STORE_PROJECTS)) {
+        const store = db.createObjectStore(STORE_PROJECTS, { keyPath: "id" });
+        store.createIndex("createdAt", "createdAt", { unique: false });
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function getFromKv<T>(key: string): Promise<T | null> {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_KV, "readonly");
+    const store = tx.objectStore(STORE_KV);
+    const req = store.get(key);
+    req.onsuccess = () => {
+      resolve((req.result?.value as T) ?? null);
+    };
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function setInKv<T>(key: string, value: T): Promise<void> {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_KV, "readwrite");
+    const store = tx.objectStore(STORE_KV);
+    const req = store.put({ key, value });
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function getLibraryHandle(): Promise<FileSystemDirectoryHandle | null> {
+  return getFromKv<FileSystemDirectoryHandle>("libraryDir");
+}
+
+export async function setLibraryHandle(handle: FileSystemDirectoryHandle): Promise<void> {
+  return setInKv<FileSystemDirectoryHandle>("libraryDir", handle);
+}
+
+export async function addDraftPost(post: DraftPost): Promise<void> {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_POSTS, "readwrite");
+    const store = tx.objectStore(STORE_POSTS);
+    const req = store.add(post);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function listDraftPosts(): Promise<DraftPost[]> {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_POSTS, "readonly");
+    const store = tx.objectStore(STORE_POSTS);
+    const request = store.getAll();
+    request.onsuccess = () => {
+      const posts = (request.result as DraftPost[]) || [];
+      posts.sort((a, b) => {
+        const ap = typeof a.position === 'number' ? a.position : undefined;
+        const bp = typeof b.position === 'number' ? b.position : undefined;
+        if (ap != null && bp != null) return ap - bp;
+        if (ap != null) return -1;
+        if (bp != null) return 1;
+        return b.createdAt - a.createdAt; // newest first fallback
+      });
+      resolve(posts);
+    };
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function getDraftPost(id: string): Promise<DraftPost | null> {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_POSTS, "readonly");
+    const store = tx.objectStore(STORE_POSTS);
+    const req = store.get(id);
+    req.onsuccess = () => resolve((req.result as DraftPost) ?? null);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function updateDraftPositions(orderedIds: string[]): Promise<void> {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_POSTS, 'readwrite');
+    const store = tx.objectStore(STORE_POSTS);
+    orderedIds.forEach((id, index) => {
+      const getReq = store.get(id);
+      getReq.onsuccess = () => {
+        const rec = getReq.result as DraftPost | undefined;
+        if (!rec) return; // skip missing
+        const updated: DraftPost = { ...rec, position: index };
+        store.put(updated);
+      };
+    });
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error);
+  });
+}
+
+export async function deleteDraftPost(id: string): Promise<void> {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_POSTS, 'readwrite');
+    const store = tx.objectStore(STORE_POSTS);
+    const req = store.delete(id);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function addProject(project: Project): Promise<void> {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_PROJECTS, "readwrite");
+    const store = tx.objectStore(STORE_PROJECTS);
+    const req = store.add(project);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function listProjects(): Promise<Project[]> {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_PROJECTS, "readonly");
+    const store = tx.objectStore(STORE_PROJECTS);
+    const request = store.getAll();
+    request.onsuccess = () => {
+      const projects = (request.result as Project[]) || [];
+      projects.sort((a, b) => {
+        const ap = typeof a.position === 'number' ? a.position : undefined;
+        const bp = typeof b.position === 'number' ? b.position : undefined;
+        if (ap != null && bp != null) return ap - bp;
+        if (ap != null) return -1;
+        if (bp != null) return 1;
+        return b.createdAt - a.createdAt; // newest first fallback
+      });
+      resolve(projects);
+    };
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function getProject(id: string): Promise<Project | null> {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_PROJECTS, "readonly");
+    const store = tx.objectStore(STORE_PROJECTS);
+    const req = store.get(id);
+    req.onsuccess = () => resolve((req.result as Project) ?? null);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function deleteProject(id: string): Promise<void> {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_PROJECTS, 'readwrite');
+    const store = tx.objectStore(STORE_PROJECTS);
+    const req = store.delete(id);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function updateProject(project: Project): Promise<void> {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_PROJECTS, 'readwrite');
+    const store = tx.objectStore(STORE_PROJECTS);
+    const req = store.put(project);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+
+

@@ -1,0 +1,258 @@
+import * as React from "react";
+import { ImageList, ImageListItem, Box, Alert, Button } from "@mui/material";
+import {
+    DndContext,
+    closestCenter,
+    PointerSensor,
+    useSensor,
+    useSensors,
+} from "@dnd-kit/core";
+import {
+    SortableContext,
+    rectSortingStrategy,
+    useSortable,
+    arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import AddPostFab from "../features/posts/AddPostFab";
+import PostDetailModal from "../features/posts/PostDetailModal";
+import { getLibraryHandle, listDraftPosts, setLibraryHandle, updateDraftPositions, deleteDraftPost, type DraftPost } from "../lib/db";
+import { ensurePermissions, getImageUrl, pickLibraryDir } from "../lib/fs";
+
+type GridItem = { id: string; url: string; post: DraftPost };
+
+export default function DraggableImageList() {
+    const [items, setItems] = React.useState<GridItem[]>([]);
+    const [bannerNeeded, setBannerNeeded] = React.useState(false);
+    const [imageCache, setImageCache] = React.useState<Map<string, string>>(new Map());
+    const [selectedPost, setSelectedPost] = React.useState<DraftPost | null>(null);
+    const [modalOpen, setModalOpen] = React.useState(false);
+    const sortableIds = React.useMemo(() => items.map(i => i.id), [items]);
+
+    const sensors = useSensors(
+        useSensor(PointerSensor, { activationConstraint: { distance: 4 } })
+    );
+
+    const handleDragEnd = async (event: any) => {
+        const { active, over } = event;
+        if (!over || active.id === over.id) return;
+        setItems((prev) => {
+            const oldIndex = prev.findIndex((x) => x.id === active.id);
+            const newIndex = prev.findIndex((x) => x.id === over.id);
+            return arrayMove(prev, oldIndex, newIndex);
+        });
+        // persist new order
+        const newOrder = items.map(i => i.id);
+        const oldIndex = newOrder.indexOf(active.id);
+        const overIndex = newOrder.indexOf(over.id);
+        const reordered = arrayMove(newOrder, oldIndex, overIndex);
+        try {
+            await updateDraftPositions(reordered);
+        } catch {
+            // ignore persist error for now
+        }
+    };
+
+    React.useCallback(() => {
+        // Only revoke URLs that are not in the cache
+        items.forEach(i => {
+            if (!imageCache.has(i.id)) {
+                URL.revokeObjectURL(i.url);
+            }
+        });
+    }, [items, imageCache]);
+
+    const loadDrafts = React.useCallback(async (forceReload = false) => {
+        if (!forceReload) {
+            // Check if we have cached data and can use it
+            const dir = await getLibraryHandle();
+            if (dir && imageCache.size > 0 && items.length > 0) {
+                // We have cached data, just return early
+                return;
+            }
+        }
+
+        const dir = await getLibraryHandle();
+        if (!dir) {
+            setBannerNeeded(true);
+            setItems([]);
+            return;
+        }
+        const has = await ensurePermissions(dir, "readwrite");
+        if (!has) {
+            setBannerNeeded(true);
+            setItems([]);
+            return;
+        }
+        const posts = await listDraftPosts();
+        
+        // Create new cache for this load
+        const newCache = new Map<string, string>();
+        const firstImages = await Promise.all(
+            posts.map(async p => {
+                const img = p.images[0];
+                if (!img) return null;
+                
+                // Check if we already have this image cached
+                if (imageCache.has(p.id)) {
+                    const cachedUrl = imageCache.get(p.id)!;
+                    newCache.set(p.id, cachedUrl);
+                    return { id: p.id, url: cachedUrl, post: p } as GridItem;
+                }
+                
+                // Load new image and cache it
+                const url = await getImageUrl(dir, img.fileName);
+                newCache.set(p.id, url);
+                return { id: p.id, url, post: p } as GridItem;
+            })
+        );
+        
+        setImageCache(newCache);
+        setBannerNeeded(false);
+        setItems(firstImages.filter(Boolean) as GridItem[]);
+    }, [imageCache, items.length]);
+
+    React.useEffect(() => {
+        void loadDrafts();
+    }, []);
+
+    const handlePostClick = (post: DraftPost) => {
+        setSelectedPost(post);
+        setModalOpen(true);
+    };
+
+    const handlePostDelete = async (postId: string) => {
+        try {
+            await deleteDraftPost(postId);
+            // Remove from items and cache
+            setItems(prev => prev.filter(item => item.id !== postId));
+            setImageCache(prev => {
+                const newCache = new Map(prev);
+                newCache.delete(postId);
+                return newCache;
+            });
+        } catch (error) {
+            console.error("Failed to delete post:", error);
+        }
+    };
+
+    return (
+        <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+        >
+            {bannerNeeded && (
+                <Alert
+                    severity="info"
+                    sx={{ mb: 2 }}
+                    action={
+                        <Button
+                            color="inherit"
+                            size="small"
+                            onClick={async () => {
+                                try {
+                                    const dir = await pickLibraryDir();
+                                    await setLibraryHandle(dir);
+                                    await loadDrafts(true); // Force reload after choosing folder
+                                } catch {
+                                    // ignore
+                                }
+                            }}
+                        >
+                            Choose Folder
+                        </Button>
+                    }
+                >
+                    Choose a local folder to store your posts.
+                </Alert>
+            )}
+            {/* SortableContext makes the children reorderable in a grid */}
+            <SortableContext items={sortableIds} strategy={rectSortingStrategy}>
+                <ImageList
+                    cols={3}
+                    rowHeight={410}
+                    sx={{
+                        width: 930,
+                        overflow: "visible",        // use page scroll, not internal
+                        touchAction: "none",
+                        // optional tiny gutters like IG
+                    }}
+                    gap={1}
+                >
+                    {items.map((it) => (
+                        <SortableTile 
+                            key={it.id} 
+                            id={it.id} 
+                            src={it.url} 
+                            onClick={() => handlePostClick(it.post)}
+                        />
+                    ))}
+                </ImageList>
+            </SortableContext>
+            <AddPostFab onSaved={() => { void loadDrafts(true); }} />
+            
+            {/* Post Detail Modal */}
+            <PostDetailModal
+                post={selectedPost}
+                open={modalOpen}
+                onClose={() => {
+                    setModalOpen(false);
+                    setSelectedPost(null);
+                }}
+                onDelete={handlePostDelete}
+            />
+        </DndContext>
+    );
+}
+
+function SortableTile({ 
+    id, 
+    src, 
+    onClick 
+}: { 
+    id: string; 
+    src: string; 
+    onClick: () => void;
+}) {
+    const { setNodeRef, attributes, listeners, transform, transition, isDragging } =
+        useSortable({ id });
+
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        cursor: isDragging ? "grabbing" : "grab",
+        zIndex: isDragging ? 10 : "auto",
+    } as React.CSSProperties;
+
+    return (
+        <ImageListItem
+            ref={setNodeRef}
+            style={style}
+            {...attributes}
+            {...listeners}
+            sx={{ userSelect: "none", touchAction: "none" }}
+        >
+            <Box
+                component="img"
+                src={src}
+                alt=""
+                loading="lazy"
+                draggable={false}
+                onDragStart={(e) => e.preventDefault()}
+                onClick={onClick}
+                sx={{ 
+                    display: "block", 
+                    width: "100%", 
+                    height: "100%", 
+                    objectFit: "cover",
+                    cursor: "pointer",
+                    "&:hover": {
+                        opacity: 0.9,
+                        transition: "opacity 0.2s"
+                    }
+                }}
+            />
+        </ImageListItem>
+    );
+}

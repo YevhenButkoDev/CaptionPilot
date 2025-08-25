@@ -23,7 +23,7 @@ export default function InstagramSidebar({ selected, onSelect }: InstagramSideba
         boxSizing: "border-box",
         alignSelf: "flex-start",
         backgroundColor: "#1a1a1a",
-        marginLeft: 0, // Remove extra space
+        marginLeft: 0,
       }}
     >
       <nav style={{ display: "grid", gap: 12 }}>
@@ -66,7 +66,7 @@ function InstagramSidebarButton({
         width: "100%",
         fontSize: "14px",
         fontWeight: active ? "600" : "400",
-        border: "none",
+        border: "1px solid #333",
         cursor: "pointer",
         transition: "all 0.2s ease",
         minHeight: "48px",

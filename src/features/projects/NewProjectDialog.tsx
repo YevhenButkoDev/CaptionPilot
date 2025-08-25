@@ -11,12 +11,11 @@ import CircularProgress from "@mui/material/CircularProgress";
 import { addProject, type Project, getLibraryHandle, setLibraryHandle, listProjects } from "../../lib/db";
 import { ensurePermissions, pickLibraryDir, saveImageToDir } from "../../lib/fs";
 import { compressImageToFile, shouldCompress } from "../../lib/image";
-import { FormControl, InputLabel, MenuItem, Select, Chip, Stack } from "@mui/material";
+import { Chip, Stack, FormControl, InputLabel, MenuItem, Select } from "@mui/material";
 
 type Props = { open: boolean; onClose: () => void; onSaved?: (projectId: string) => void };
 
 const TONE_OPTIONS = ["warm", "playful", "cozy", "witty", "friendly", "energetic", "Other..."];
-const MOOD_OPTIONS = ["calm", "cozy", "vibrant", "minimal", "moody", "playful", "Other..."];
 
 export default function NewProjectDialog({ open, onClose, onSaved }: Props) {
   const [files, setFiles] = React.useState<File[]>([]);
@@ -27,14 +26,13 @@ export default function NewProjectDialog({ open, onClose, onSaved }: Props) {
   const [compressing, setCompressing] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement | null>(null);
 
-  const [toneOption, setToneOption] = React.useState<string>("");
-  const [toneCustom, setToneCustom] = React.useState<string>("");
-  const [moodOption, setMoodOption] = React.useState<string>("");
-  const [moodCustom, setMoodCustom] = React.useState<string>("");
   const [hashtags, setHashtags] = React.useState<string>("");
   const [moods, setMoods] = React.useState<string[]>([]);
-  const [ideaInput, setIdeaInput] = React.useState<string>("");
+  const [moodInput, setMoodInput] = React.useState<string>("");
   const [postIdeas, setPostIdeas] = React.useState<string[]>([]);
+  const [ideaInput, setIdeaInput] = React.useState<string>("");
+  const [toneOption, setToneOption] = React.useState<string>("");
+  const [toneCustom, setToneCustom] = React.useState<string>("");
 
   React.useEffect(() => {
     if (!open) {
@@ -44,14 +42,13 @@ export default function NewProjectDialog({ open, onClose, onSaved }: Props) {
       setDragOver(false);
       setSaving(false);
       setCompressing(false);
+      setMoods([]);
+      setMoodInput("");
+      setPostIdeas([]);
+      setIdeaInput("");
+      setHashtags("");
       setToneOption("");
       setToneCustom("");
-      setMoodOption("");
-      setMoodCustom("");
-      setMoods([]);
-      setIdeaInput("");
-      setPostIdeas([]);
-      setHashtags("");
     }
   }, [open]);
 
@@ -60,9 +57,6 @@ export default function NewProjectDialog({ open, onClose, onSaved }: Props) {
     const imgs = Array.from(dropped).filter(f => f.type.startsWith("image/"));
     setFiles(prev => [...prev, ...imgs]);
   };
-
-  const resolveTone = () => (toneOption === "Other..." ? toneCustom.trim() : toneOption);
-  const resolveMood = () => (moodOption === "Other..." ? moodCustom.trim() : moodOption);
 
   const handleSave = async () => {
     if (files.length === 0 || !name.trim()) return;
@@ -109,9 +103,9 @@ export default function NewProjectDialog({ open, onClose, onSaved }: Props) {
         name: name.trim(),
         description: description.trim(),
         images: savedImages,
-        tone: resolveTone() || undefined,
         hashtags: hashtags.trim() || undefined,
-        moods: moods.length ? moods : (resolveMood() ? [resolveMood()!] : undefined),
+        tone: (toneOption === "Other..." ? toneCustom.trim() : toneOption) || undefined,
+        moods: moods.length ? moods : undefined,
         postIdeas: postIdeas.length ? postIdeas : undefined,
         createdAt: Date.now(),
         position: nextPos,
@@ -147,55 +141,8 @@ export default function NewProjectDialog({ open, onClose, onSaved }: Props) {
             onChange={(e) => setDescription(e.target.value)}
             multiline
             minRows={3}
+            placeholder="Supports simple markdown like **bold** and *italic*"
           />
-
-          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
-            <FormControl fullWidth>
-              <InputLabel id="tone-label">Tone</InputLabel>
-              <Select
-                labelId="tone-label"
-                value={toneOption}
-                label="Tone"
-                onChange={(e) => setToneOption(e.target.value)}
-              >
-                {TONE_OPTIONS.map(opt => (
-                  <MenuItem key={opt} value={opt}>{opt}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            {toneOption === "Other..." && (
-              <TextField
-                fullWidth
-                label="Custom Tone"
-                value={toneCustom}
-                onChange={(e) => setToneCustom(e.target.value)}
-              />
-            )}
-          </Box>
-
-          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
-            <FormControl fullWidth>
-              <InputLabel id="mood-label">Mood</InputLabel>
-              <Select
-                labelId="mood-label"
-                value={moodOption}
-                label="Mood"
-                onChange={(e) => setMoodOption(e.target.value)}
-              >
-                {MOOD_OPTIONS.map(opt => (
-                  <MenuItem key={opt} value={opt}>{opt}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            {moodOption === "Other..." && (
-              <TextField
-                fullWidth
-                label="Custom Mood"
-                value={moodCustom}
-                onChange={(e) => setMoodCustom(e.target.value)}
-              />
-            )}
-          </Box>
 
           {/* Moods list */}
           <Box sx={{ display: 'grid', gridTemplateColumns: '1fr', gap: 1 }}>
@@ -203,13 +150,15 @@ export default function NewProjectDialog({ open, onClose, onSaved }: Props) {
             <TextField
               fullWidth
               label="Add a mood and press Enter"
+              value={moodInput}
+              onChange={(e) => setMoodInput(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   e.preventDefault();
-                  const value = (e.target as HTMLInputElement).value.trim();
+                  const value = moodInput.trim();
                   if (value) {
                     setMoods(prev => Array.from(new Set([...prev, value])));
-                    (e.target as HTMLInputElement).value = '';
+                    setMoodInput('');
                   }
                 }
               }}
@@ -217,7 +166,7 @@ export default function NewProjectDialog({ open, onClose, onSaved }: Props) {
             {moods.length > 0 && (
               <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
                 {moods.map((m, i) => (
-                  <Chip key={`${m}-${i}`} label={m} onDelete={() => setMoods(prev => prev.filter(x => x !== m))} />
+                  <Chip key={`${m}-${i}`} label={m} onDelete={() => setMoods(prev => prev.filter((_, idx) => idx !== i))} />
                 ))}
               </Stack>
             )}
@@ -248,6 +197,31 @@ export default function NewProjectDialog({ open, onClose, onSaved }: Props) {
                   <Chip key={`${m}-${i}`} label={m} onDelete={() => setPostIdeas(prev => prev.filter((_, idx) => idx !== i))} />
                 ))}
               </Stack>
+            )}
+          </Box>
+
+          {/* Tone */}
+          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+            <FormControl fullWidth>
+              <InputLabel id="tone-label">Tone</InputLabel>
+              <Select
+                labelId="tone-label"
+                value={toneOption}
+                label="Tone"
+                onChange={(e) => setToneOption(e.target.value)}
+              >
+                {TONE_OPTIONS.map(opt => (
+                  <MenuItem key={opt} value={opt}>{opt}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            {toneOption === "Other..." && (
+              <TextField
+                fullWidth
+                label="Custom Tone"
+                value={toneCustom}
+                onChange={(e) => setToneCustom(e.target.value)}
+              />
             )}
           </Box>
 

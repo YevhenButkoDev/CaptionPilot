@@ -58,4 +58,17 @@ export async function getImageUrl(
   return URL.createObjectURL(file);
 }
 
+export async function deleteImageFromDir(
+  dir: FileSystemDirectoryHandle,
+  fileName: string
+): Promise<void> {
+  // removeEntry throws if missing; we can ignore errors silently
+  try {
+    // @ts-expect-error: removeEntry typing varies
+    await dir.removeEntry(fileName);
+  } catch {
+    // ignore missing or permission errors
+  }
+}
+
 

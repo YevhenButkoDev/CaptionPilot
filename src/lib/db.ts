@@ -5,6 +5,8 @@ export type DraftPost = {
   id: string;
   createdAt: number;
   caption: string;
+  aiCaptions?: string[]; // optional list of AI-generated captions
+  selectedCaptionIndex?: number; // index into aiCaptions
   images: { fileName: string; mimeType: string; size: number }[];
   projectId?: string;
   position?: number; // lower comes first; fallback to createdAt desc if missing
@@ -23,11 +25,19 @@ export type Project = {
   position?: number; // lower comes first; fallback to createdAt desc if missing
 };
 
+export type PromptTemplate = {
+  id: string;
+  name: string;
+  content: string; // contains placeholders { Tone }, { Mood }, { Hashtags } and { Project Description }
+  createdAt: number;
+};
+
 const DB_NAME = "inst-automation";
-const DB_VERSION = 2; // Increment version for new store
+const DB_VERSION = 3; // Increment version for new stores
 const STORE_KV = "kv";
 const STORE_POSTS = "draftPosts";
 const STORE_PROJECTS = "projects";
+const STORE_PROMPTS = "prompts";
 
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -43,6 +53,10 @@ function openDb(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains(STORE_PROJECTS)) {
         const store = db.createObjectStore(STORE_PROJECTS, { keyPath: "id" });
+        store.createIndex("createdAt", "createdAt", { unique: false });
+      }
+      if (!db.objectStoreNames.contains(STORE_PROMPTS)) {
+        const store = db.createObjectStore(STORE_PROMPTS, { keyPath: "id" });
         store.createIndex("createdAt", "createdAt", { unique: false });
       }
     };
@@ -127,6 +141,17 @@ export async function getDraftPost(id: string): Promise<DraftPost | null> {
   });
 }
 
+export async function updateDraftPost(post: DraftPost): Promise<void> {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_POSTS, 'readwrite');
+    const store = tx.objectStore(STORE_POSTS);
+    const req = store.put(post);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+
 export async function updateDraftPositions(orderedIds: string[]): Promise<void> {
   const db = await openDb();
   return new Promise((resolve, reject) => {
@@ -169,6 +194,39 @@ export async function deleteDraftPostsByProject(projectId: string): Promise<void
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
     tx.onabort = () => reject(tx.error);
+  });
+}
+
+export async function addPrompt(prompt: PromptTemplate): Promise<void> {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_PROMPTS, 'readwrite');
+    const store = tx.objectStore(STORE_PROMPTS);
+    const req = store.add(prompt);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function listPrompts(): Promise<PromptTemplate[]> {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_PROMPTS, 'readonly');
+    const store = tx.objectStore(STORE_PROMPTS);
+    const req = store.getAll();
+    req.onsuccess = () => resolve((req.result as PromptTemplate[]) || []);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function deletePrompt(id: string): Promise<void> {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_PROMPTS, 'readwrite');
+    const store = tx.objectStore(STORE_PROMPTS);
+    const req = store.delete(id);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
   });
 }
 

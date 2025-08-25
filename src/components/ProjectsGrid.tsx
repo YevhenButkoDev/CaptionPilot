@@ -3,7 +3,7 @@ import { ImageList, ImageListItem, Box, Alert, Button, Typography, IconButton } 
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import AddProjectFab from "../features/projects/AddProjectFab";
 import { getLibraryHandle, listProjects, setLibraryHandle, type Project, deleteProject, deleteDraftPostsByProject } from "../lib/db";
-import { ensurePermissions, pickLibraryDir, getImageUrl } from "../lib/fs";
+import { ensurePermissions, pickLibraryDir, getImageUrl, deleteImageFromDir } from "../lib/fs";
 import DeleteIcon from '@mui/icons-material/Delete';
 
 type GridItem = { id: string; project: Project; imageUrl?: string };
@@ -120,6 +120,12 @@ export default function ProjectsGrid() {
                         onDelete={async () => {
                             if (window.confirm("Delete this project and all its generated posts?")) {
                                 try {
+                                    const dir = await getLibraryHandle();
+                                    if (dir) {
+                                        for (const img of item.project.images) {
+                                            try { await deleteImageFromDir(dir, img.fileName); } catch {}
+                                        }
+                                    }
                                     await deleteDraftPostsByProject(item.project.id);
                                     await deleteProject(item.project.id);
                                     setItems(prev => prev.filter(x => x.id !== item.id));

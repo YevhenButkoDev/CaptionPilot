@@ -17,7 +17,7 @@ import { CSS } from "@dnd-kit/utilities";
 import AddPostFab from "../features/posts/AddPostFab";
 import PostDetailModal from "../features/posts/PostDetailModal";
 import { getLibraryHandle, listDraftPosts, setLibraryHandle, updateDraftPositions, deleteDraftPost, type DraftPost } from "../lib/db";
-import { ensurePermissions, getImageUrl, pickLibraryDir } from "../lib/fs";
+import { ensurePermissions, getImageUrl, pickLibraryDir, deleteImageFromDir } from "../lib/fs";
 
 type GridItem = { id: string; url: string; post: DraftPost };
 
@@ -123,6 +123,19 @@ export default function DraggableImageList() {
 
     const handlePostDelete = async (postId: string) => {
         try {
+            const dir = await getLibraryHandle();
+            if (dir) {
+                const gridItem = items.find(i => i.id === postId);
+                const post = gridItem?.post;
+                if (post) {
+                    // Only delete underlying files for standalone posts (no project linkage)
+                    if (!post.projectId) {
+                        for (const img of post.images) {
+                            try { await deleteImageFromDir(dir, img.fileName); } catch {}
+                        }
+                    }
+                }
+            }
             await deleteDraftPost(postId);
             // Remove from items and cache
             setItems(prev => prev.filter(item => item.id !== postId));

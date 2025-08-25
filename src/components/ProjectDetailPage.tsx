@@ -2,7 +2,7 @@ import * as React from "react";
 import { Box, Typography, IconButton, ImageList, ImageListItem, Alert, Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, CircularProgress, Chip, Stack, Fab } from "@mui/material";
 import { ArrowBack, Add, Remove } from "@mui/icons-material";
 import { getProject, updateProject, type Project, getLibraryHandle } from "../lib/db";
-import { getImageUrl, saveImageToDir, ensurePermissions } from "../lib/fs";
+import { getImageUrl, saveImageToDir, ensurePermissions, deleteImageFromDir } from "../lib/fs";
 import { compressImageToFile, shouldCompress } from "../lib/image";
 
 function renderMarkdownToHtml(src: string): string {
@@ -89,6 +89,14 @@ export default function ProjectDetailPage({ projectId, onBack }: ProjectDetailPa
       // Update in database
       await updateProject(updatedProject);
       setProject(updatedProject);
+      
+      // Delete underlying file
+      try {
+        const dir = await getLibraryHandle();
+        if (dir) {
+          await deleteImageFromDir(dir, project.images[imageIndex].fileName);
+        }
+      } catch {}
       
       // Update image URLs
       const newUrls = [...imageUrls];
@@ -210,13 +218,6 @@ export default function ProjectDetailPage({ projectId, onBack }: ProjectDetailPa
             component="div"
             dangerouslySetInnerHTML={{ __html: renderMarkdownToHtml(project.description) }}
           />
-        )}
-        {(project.tone || project.mood || project.hashtags) && (
-          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-            {project.tone && <Chip label={`Tone: ${project.tone}`} size="small" />}
-            {project.mood && <Chip label={`Mood: ${project.mood}`} size="small" />}
-            {project.hashtags && <Chip label={`Hashtags: ${project.hashtags}`} size="small" />}
-          </Stack>
         )}
         {(project.moods && project.moods.length > 0) && (
           <Box sx={{ mt: 1 }}>

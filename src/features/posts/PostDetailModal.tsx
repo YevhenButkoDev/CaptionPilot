@@ -4,9 +4,10 @@ import DialogContent from "@mui/material/DialogContent";
 import IconButton from "@mui/material/IconButton";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
-import { ChevronLeft, ChevronRight, Close, Delete } from "@mui/icons-material";
-import {type DraftPost, getLibraryHandle} from "../../lib/db";
+import { ChevronLeft, ChevronRight, Close, Delete, Save as SaveIcon } from "@mui/icons-material";
+import {type DraftPost, getLibraryHandle, updateDraftPost} from "../../lib/db";
 import { getImageUrl } from "../../lib/fs";
+import { MenuItem, Select, FormControl, InputLabel, Button, TextField } from "@mui/material";
 
 interface PostDetailModalProps {
   post: DraftPost | null;
@@ -19,12 +20,15 @@ export default function PostDetailModal({ post, open, onClose, onDelete }: PostD
   const [currentImageIndex, setCurrentImageIndex] = React.useState(0);
   const [imageUrls, setImageUrls] = React.useState<string[]>([]);
   const [loading, setLoading] = React.useState(false);
+  const [captionIndex, setCaptionIndex] = React.useState<number>(post?.selectedCaptionIndex ?? 0);
+  const [captionDraft, setCaptionDraft] = React.useState<string>(post?.caption ?? "");
+  const [saving, setSaving] = React.useState(false);
 
   React.useEffect(() => {
-    console.log('post', post);
-
     if (open && post) {
       setCurrentImageIndex(0);
+      setCaptionIndex(post.selectedCaptionIndex ?? 0);
+      setCaptionDraft(post.caption || "");
       loadImages();
     }
   }, [open, post]);
@@ -74,7 +78,34 @@ export default function PostDetailModal({ post, open, onClose, onDelete }: PostD
     onClose();
   };
 
+  const handleCaptionChange = async (index: number) => {
+    if (!post) return;
+    try {
+      const updated: DraftPost = { ...post, selectedCaptionIndex: index, caption: post.aiCaptions?.[index] ?? post.caption };
+      await updateDraftPost(updated);
+      setCaptionIndex(index);
+      setCaptionDraft(updated.caption);
+    } catch (e) {
+      // ignore persist error
+    }
+  };
+
+  const handleSaveCaption = async () => {
+    if (!post) return;
+    try {
+      setSaving(true);
+      const updated: DraftPost = { ...post, caption: captionDraft };
+      await updateDraftPost(updated);
+    } catch (e) {
+      // ignore
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (!post) return null;
+
+  const captions = post.aiCaptions && post.aiCaptions.length > 0 ? post.aiCaptions : [post.caption];
 
   return (
     <Dialog 
@@ -147,32 +178,6 @@ export default function PostDetailModal({ post, open, onClose, onDelete }: PostD
                   </IconButton>
                 </>
               )}
-              
-              {/* Image indicators */}
-              {post.images.length > 1 && (
-                <Box sx={{
-                  position: "absolute",
-                  bottom: 16,
-                  left: "50%",
-                  transform: "translateX(-50%)",
-                  display: "flex",
-                  gap: 1
-                }}>
-                  {post.images.map((_, index) => (
-                    <Box
-                      key={index}
-                      sx={{
-                        width: 8,
-                        height: 8,
-                        borderRadius: "50%",
-                        bgcolor: index === currentImageIndex ? "white" : "rgba(255,255,255,0.5)",
-                        cursor: "pointer"
-                      }}
-                      onClick={() => setCurrentImageIndex(index)}
-                    />
-                  ))}
-                </Box>
-              )}
             </>
           ) : (
             <Typography color="white">No images found</Typography>
@@ -211,25 +216,43 @@ export default function PostDetailModal({ post, open, onClose, onDelete }: PostD
             </Box>
           </Box>
 
-          {/* Caption */}
-          <Box sx={{ flex: "1" }}>
-            <Typography variant="body1" sx={{ 
-              whiteSpace: "pre-wrap", 
-              lineHeight: 1.5,
-              mb: 2
-            }}>
-              {post.caption || "No caption"}
+          {/* Caption selector */}
+          {post.aiCaptions && post.aiCaptions.length > 0 && (
+            <FormControl fullWidth sx={{ mb: 1 }}>
+              <InputLabel id="caption-select-label">AI Captions</InputLabel>
+              <Select
+                labelId="caption-select-label"
+                value={captionIndex}
+                label="AI Captions"
+                onChange={(e) => handleCaptionChange(Number(e.target.value))}
+              >
+                {post.aiCaptions.map((c, idx) => (
+                  <MenuItem key={idx} value={idx}>{`Caption ${idx + 1}`}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )}
+
+          {/* Editable caption */}
+          <TextField
+            value={captionDraft}
+            onChange={(e) => setCaptionDraft(e.target.value)}
+            multiline
+            minRows={6}
+            sx={{ mb: 1 }}
+          />
+          <Button variant="contained" size="small" onClick={handleSaveCaption} startIcon={<SaveIcon />} disabled={saving}>
+            {saving ? 'Saving...' : 'Save Caption'}
+          </Button>
+
+          {/* Meta */}
+          <Box sx={{ mt: 2, pt: 2, borderTop: "1px solid #dbdbdb" }}>
+            <Typography variant="caption" color="text.secondary">
+              Created: {new Date(post.createdAt).toLocaleDateString()}
             </Typography>
-            
-            {/* Post metadata */}
-            <Box sx={{ mt: "auto", pt: 2, borderTop: "1px solid #dbdbdb" }}>
-              <Typography variant="caption" color="text.secondary">
-                Created: {new Date(post.createdAt).toLocaleDateString()}
-              </Typography>
-              <Typography variant="caption" color="text.secondary" display="block">
-                Images: {post.images.length}
-              </Typography>
-            </Box>
+            <Typography variant="caption" color="text.secondary" display="block">
+              Images: {post.images.length}
+            </Typography>
           </Box>
         </Box>
       </DialogContent>

@@ -2,6 +2,8 @@ import InstagramLogo from "../assets/instagram-logo.svg";
 import PinterestLogo from "../assets/pinterest-logo.svg";
 import SettingsIcon from '@mui/icons-material/Settings';
 import DashboardIcon from '@mui/icons-material/Dashboard';
+import Logo from './Logo';
+import { Box, Typography } from '@mui/material';
 
 export type SectionKey = "settings" | "projects" | "instagram" | "pinterest";
 
@@ -26,24 +28,33 @@ export default function Sidebar({ selected, onSelect }: SidebarProps) {
         alignSelf: "flex-start",
       }}
     >
-      <nav style={{ display: "grid", gap: 12, justifyItems: "center" }}>
+      <nav style={{ display: "grid", gap: 16, justifyItems: "center" }}>
+        {/* Logo at the top */}
+        <Box sx={{ mb: 3, display: "flex", flexDirection: "column", alignItems: "center" }}>
+          <Logo />
+        </Box>
+        
         <SidebarButton
           icon={<SettingsIcon/>}
+          label="Settings"
           active={selected === "settings"}
           onClick={() => onSelect("settings")}
         />
         <SidebarButton
           icon={<DashboardIcon/>}
+          label="Projects"
           active={selected === "projects"}
           onClick={() => onSelect("projects")}
         />
         <SidebarButton
           icon={<img src={InstagramLogo} style={{ width: 24, height: 24 }} />}
+          label="Instagram"
           active={selected === "instagram"}
           onClick={() => onSelect("instagram")}
         />
         <SidebarButton
           icon={<img src={PinterestLogo} style={{ width: 24, height: 24 }} />}
+          label="Pinterest"
           active={selected === "pinterest"}
           onClick={() => onSelect("pinterest")}
         />
@@ -54,10 +65,12 @@ export default function Sidebar({ selected, onSelect }: SidebarProps) {
 
 function SidebarButton({
   icon,
+  label,
   active,
   onClick,
 }: {
   icon: React.ReactNode;
+  label: string;
   active: boolean;
   onClick: () => void;
 }) {
@@ -65,18 +78,29 @@ function SidebarButton({
     <button
       onClick={onClick}
       style={{
-        textAlign: "center",
-        background: active ? "#2a2a2a" : "#1a1a1a",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: 4,
+        background: "transparent",
         color: active ? "#fff" : "#ddd",
-        padding: "12px",
-        borderRadius: 12,
-        width: 48,
-        height: 48,
-        fontSize: "20px",
-        border: active ? "1px solid #646cff" : "1px solid #333",
+        padding: "8px 4px",
+        borderRadius: 8,
+        width: "100%",
+        fontSize: "10px",
+        border: "none",
+        cursor: "pointer",
+        transition: "all 0.2s ease",
+        textAlign: "center",
       }}
     >
-      {icon}
+      <span style={{ fontSize: "24px" }}>{icon}</span>
+      <span style={{ 
+        fontWeight: active ? "600" : "400",
+        lineHeight: "1.2"
+      }}>
+        {label}
+      </span>
     </button>
   );
 }

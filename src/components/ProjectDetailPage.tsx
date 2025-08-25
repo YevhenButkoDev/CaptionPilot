@@ -1,9 +1,21 @@
 import * as React from "react";
-import { Box, Typography, IconButton, ImageList, ImageListItem, Alert, Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, CircularProgress } from "@mui/material";
-import { ArrowBack, Delete, Add, Remove } from "@mui/icons-material";
-import { getProject, deleteProject, updateProject, type Project, getLibraryHandle, listProjects } from "../lib/db";
+import { Box, Typography, IconButton, ImageList, ImageListItem, Alert, Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, CircularProgress, Chip, Stack, Fab } from "@mui/material";
+import { ArrowBack, Add, Remove } from "@mui/icons-material";
+import { getProject, updateProject, type Project, getLibraryHandle } from "../lib/db";
 import { getImageUrl, saveImageToDir, ensurePermissions } from "../lib/fs";
 import { compressImageToFile, shouldCompress } from "../lib/image";
+
+function renderMarkdownToHtml(src: string): string {
+  // Minimal markdown: **bold**, *italic*, line breaks preserved, with basic escaping
+  let html = src
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+  html = html.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+  html = html.replace(/\*(.*?)\*/g, "<em>$1</em>");
+  html = html.replace(/\n/g, "<br/>");
+  return html;
+}
 
 interface ProjectDetailPageProps {
   projectId: string;
@@ -56,16 +68,7 @@ export default function ProjectDetailPage({ projectId, onBack }: ProjectDetailPa
   };
 
   const handleDelete = async () => {
-    if (!project || !window.confirm("Are you sure you want to delete this project?")) {
-      return;
-    }
-    
-    try {
-      await deleteProject(project.id);
-      onBack();
-    } catch (error) {
-      console.error("Failed to delete project:", error);
-    }
+    // no-op here; deletion handled from the projects grid
   };
 
   const handleRemoveImage = async (imageIndex: number) => {
@@ -134,7 +137,7 @@ export default function ProjectDetailPage({ projectId, onBack }: ProjectDetailPa
 
       setCompressing(false);
 
-      const savedImages = [];
+      const savedImages = [] as any[];
       for (const f of compressedImages) {
         const meta = await saveImageToDir(dir, f);
         savedImages.push(meta);
@@ -187,41 +190,50 @@ export default function ProjectDetailPage({ projectId, onBack }: ProjectDetailPa
 
   return (
     <Box sx={{ maxWidth: 1200, mx: "auto", p: 3 }}>
-      {/* Header */}
-      <Box sx={{ 
-        display: "flex", 
-        alignItems: "center", 
-        mb: 3,
-        gap: 2
-      }}>
+      {/* Header with back only */}
+      <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 2 }}>
         <IconButton onClick={onBack} size="large">
           <ArrowBack />
         </IconButton>
-        <Box sx={{ flex: 1 }}>
-          <Typography variant="h4" sx={{ fontWeight: "bold", mb: 1 }}>
-            {project.name}
-          </Typography>
-          {project.description && (
-            <Typography variant="body1" color="text.secondary" sx={{ mb: 1 }}>
-              {project.description}
-            </Typography>
-          )}
-        </Box>
-        <Button
-          variant="outlined"
-          startIcon={<Add />}
-          onClick={() => setAddImagesOpen(true)}
-          sx={{ mr: 1 }}
-        >
-          Add Images
-        </Button>
-        <IconButton
-          onClick={handleDelete}
-          sx={{ color: "error.main" }}
-          size="large"
-        >
-          <Delete />
-        </IconButton>
+      </Box>
+
+      {/* Info box (same width style as metadata box) */}
+      <Box sx={{ mb: 3, p: 2, bgcolor: "background.paper", borderRadius: 1, border: "1px solid", borderColor: "divider" }}>
+        <Typography variant="h5" sx={{ fontWeight: "bold", mb: 1 }}>
+          {project.name}
+        </Typography>
+        {project.description && (
+          <Typography 
+            variant="body1" 
+            color="text.secondary" 
+            sx={{ mb: 1 }}
+            component="div"
+            dangerouslySetInnerHTML={{ __html: renderMarkdownToHtml(project.description) }}
+          />
+        )}
+        {(project.tone || project.mood || project.hashtags) && (
+          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+            {project.tone && <Chip label={`Tone: ${project.tone}`} size="small" />}
+            {project.mood && <Chip label={`Mood: ${project.mood}`} size="small" />}
+            {project.hashtags && <Chip label={`Hashtags: ${project.hashtags}`} size="small" />}
+          </Stack>
+        )}
+        {(project.moods && project.moods.length > 0) && (
+          <Box sx={{ mt: 1 }}>
+            <Typography variant="subtitle2">Moods</Typography>
+            <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+              {project.moods.map((m, i) => (<Chip key={`${m}-${i}`} label={m} size="small" />))}
+            </Stack>
+          </Box>
+        )}
+        {(project.postIdeas && project.postIdeas.length > 0) && (
+          <Box sx={{ mt: 1 }}>
+            <Typography variant="subtitle2">Post Ideas</Typography>
+            <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+              {project.postIdeas.map((m, i) => (<Chip key={`${m}-${i}`} label={m} size="small" />))}
+            </Stack>
+          </Box>
+        )}
       </Box>
 
       {/* Project metadata */}
@@ -263,7 +275,6 @@ export default function ProjectDetailPage({ projectId, onBack }: ProjectDetailPa
                   }
                 }}
                 onClick={() => {
-                  // Open image in new tab for full view
                   window.open(url, '_blank');
                 }}
               />
@@ -295,6 +306,16 @@ export default function ProjectDetailPage({ projectId, onBack }: ProjectDetailPa
           This project has no images yet. Click "Add Images" to get started.
         </Alert>
       )}
+
+      {/* Floating Add Images Button */}
+      <Fab 
+        color="primary" 
+        aria-label="add-images"
+        onClick={() => setAddImagesOpen(true)}
+        sx={{ position: "fixed", right: 24, bottom: 24 }}
+      >
+        <Add />
+      </Fab>
 
       {/* Add Images Dialog */}
       <Dialog open={addImagesOpen} onClose={() => setAddImagesOpen(false)} fullWidth maxWidth="md">

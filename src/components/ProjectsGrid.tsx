@@ -1,9 +1,10 @@
 import * as React from "react";
-import { ImageList, ImageListItem, Box, Alert, Button, Typography } from "@mui/material";
+import { ImageList, ImageListItem, Box, Alert, Button, Typography, IconButton } from "@mui/material";
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import AddProjectFab from "../features/projects/AddProjectFab";
-import { getLibraryHandle, listProjects, setLibraryHandle, type Project } from "../lib/db";
+import { getLibraryHandle, listProjects, setLibraryHandle, type Project, deleteProject, deleteDraftPostsByProject } from "../lib/db";
 import { ensurePermissions, pickLibraryDir, getImageUrl } from "../lib/fs";
+import DeleteIcon from '@mui/icons-material/Delete';
 
 type GridItem = { id: string; project: Project; imageUrl?: string };
 
@@ -116,6 +117,17 @@ export default function ProjectsGrid() {
                         project={item.project}
                         imageUrl={item.imageUrl}
                         onClick={() => handleProjectClick(item.project)}
+                        onDelete={async () => {
+                            if (window.confirm("Delete this project and all its generated posts?")) {
+                                try {
+                                    await deleteDraftPostsByProject(item.project.id);
+                                    await deleteProject(item.project.id);
+                                    setItems(prev => prev.filter(x => x.id !== item.id));
+                                } catch (e) {
+                                    console.error(e);
+                                }
+                            }
+                        }}
                     />
                 ))}
             </ImageList>
@@ -128,11 +140,13 @@ export default function ProjectsGrid() {
 function ProjectTile({ 
     project, 
     imageUrl,
-    onClick 
+    onClick, 
+    onDelete,
 }: { 
     project: Project; 
     imageUrl?: string;
     onClick: () => void;
+    onDelete: () => void;
 }) {
     return (
         <ImageListItem
@@ -184,6 +198,14 @@ function ProjectTile({
                         }} 
                     />
                 )}
+
+                <IconButton 
+                    size="small" 
+                    sx={{ position: "absolute", top: 4, right: 4, bgcolor: "rgba(0,0,0,0.5)", color: "white", '&:hover': { bgcolor: "rgba(0,0,0,0.7)" }, zIndex: 2 }}
+                    onClick={(e) => { e.stopPropagation(); onDelete(); }}
+                >
+                    <DeleteIcon fontSize="small" />
+                </IconButton>
                 
                 {/* Project name overlay */}
                 <Box

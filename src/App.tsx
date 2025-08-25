@@ -1,8 +1,9 @@
 import './App.css'
-import DraggableImageList from "./components/InstagramLikeGrid.tsx";
+import InstagramContainer from "./components/InstagramContainer.tsx";
 import Sidebar, { type SectionKey } from "./components/Sidebar.tsx";
 import ProjectsGrid from "./components/ProjectsGrid.tsx";
 import ProjectDetailPage from "./components/ProjectDetailPage.tsx";
+import Settings from "./components/Settings.tsx";
 import * as React from "react";
 
 function App() {
@@ -46,7 +47,7 @@ function App() {
         justifyContent: "center",
         alignItems: "flex-start",
       }}>
-        {section === "instagram" && <DraggableImageList />}
+        {section === "instagram" && <InstagramContainer />}
         {section === "projects" && currentProjectId ? (
           <ProjectDetailPage 
             projectId={currentProjectId} 
@@ -55,12 +56,7 @@ function App() {
         ) : section === "projects" && (
           <ProjectsGrid />
         )}
-        {section === "settings" && (
-          <div style={{ maxWidth: 960, width: "100%" }}>
-            <h2>Settings</h2>
-            <p>Mock settings content goes here.</p>
-          </div>
-        )}
+        {section === "settings" && <Settings />}
         {section === "pinterest" && (
           <div style={{ maxWidth: 960, width: "100%" }}>
             <h2>Pinterest</h2>

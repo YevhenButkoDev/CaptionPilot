@@ -6,6 +6,7 @@ export type DraftPost = {
   createdAt: number;
   caption: string;
   images: { fileName: string; mimeType: string; size: number }[];
+  projectId?: string;
   position?: number; // lower comes first; fallback to createdAt desc if missing
 };
 
@@ -14,6 +15,10 @@ export type Project = {
   name: string;
   description: string;
   images: { fileName: string; mimeType: string; size: number }[];
+  tone?: string;
+  hashtags?: string;
+  moods?: string[];
+  postIdeas?: string[];
   createdAt: number;
   position?: number; // lower comes first; fallback to createdAt desc if missing
 };
@@ -150,6 +155,20 @@ export async function deleteDraftPost(id: string): Promise<void> {
     const req = store.delete(id);
     req.onsuccess = () => resolve();
     req.onerror = () => reject(req.error);
+  });
+}
+
+export async function deleteDraftPostsByProject(projectId: string): Promise<void> {
+  const posts = await listDraftPosts();
+  const toDelete = posts.filter(p => p.projectId === projectId).map(p => p.id);
+  const db = await openDb();
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(STORE_POSTS, 'readwrite');
+    const store = tx.objectStore(STORE_POSTS);
+    toDelete.forEach(id => store.delete(id));
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error);
   });
 }
 

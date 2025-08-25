@@ -137,72 +137,80 @@ export default function DraggableImageList() {
     };
 
     return (
-        <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
-        >
-            {bannerNeeded && (
-                <Alert
-                    severity="info"
-                    sx={{ mb: 2 }}
-                    action={
-                        <Button
-                            color="inherit"
-                            size="small"
-                            onClick={async () => {
-                                try {
-                                    const dir = await pickLibraryDir();
-                                    await setLibraryHandle(dir);
-                                    await loadDrafts(true); // Force reload after choosing folder
-                                } catch {
-                                    // ignore
-                                }
-                            }}
-                        >
-                            Choose Folder
-                        </Button>
-                    }
-                >
-                    Choose a local folder to store your posts.
-                </Alert>
-            )}
-            {/* SortableContext makes the children reorderable in a grid */}
-            <SortableContext items={sortableIds} strategy={rectSortingStrategy}>
-                <ImageList
-                    cols={3}
-                    rowHeight={410}
-                    sx={{
-                        width: 930,
-                        overflow: "visible",        // use page scroll, not internal
-                        touchAction: "none",
-                        // optional tiny gutters like IG
+        <Box sx={{ 
+            display: "flex", 
+            flexDirection: "column", 
+            alignItems: "center",
+            width: "100%",
+            minHeight: "100%"
+        }}>
+            <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+            >
+                {bannerNeeded && (
+                    <Alert
+                        severity="info"
+                        sx={{ mb: 2, width: "100%", maxWidth: 930 }}
+                        action={
+                            <Button
+                                color="inherit"
+                                size="small"
+                                onClick={async () => {
+                                    try {
+                                        const dir = await pickLibraryDir();
+                                        await setLibraryHandle(dir);
+                                        await loadDrafts(true); // Force reload after choosing folder
+                                    } catch {
+                                        // ignore
+                                    }
+                                }}
+                            >
+                                Choose Folder
+                            </Button>
+                        }
+                    >
+                        Choose a local folder to store your posts.
+                    </Alert>
+                )}
+                {/* SortableContext makes the children reorderable in a grid */}
+                <SortableContext items={sortableIds} strategy={rectSortingStrategy}>
+                    <ImageList
+                        cols={3}
+                        rowHeight={410}
+                        sx={{
+                            width: 930,
+                            overflow: "visible",        // use page scroll, not internal
+                            touchAction: "none",
+                            // optional tiny gutters like IG
+                        }}
+                        gap={1}
+                    >
+                        {items.map((it) => (
+                            <SortableTile 
+                                key={it.id} 
+                                id={it.id} 
+                                src={it.url} 
+                                onClick={() => handlePostClick(it.post)}
+                            />
+                        ))}
+                    </ImageList>
+                </SortableContext>
+                <AddPostFab onSaved={() => { void loadDrafts(true); }} />
+                
+                {/* Post Detail Modal */}
+                <PostDetailModal
+                    post={selectedPost}
+                    open={modalOpen}
+                    onClose={() => {
+                        setModalOpen(false);
+                        setSelectedPost(null);
                     }}
-                    gap={1}
-                >
-                    {items.map((it) => (
-                        <SortableTile 
-                            key={it.id} 
-                            id={it.id} 
-                            src={it.url} 
-                            onClick={() => handlePostClick(it.post)}
-                        />
-                    ))}
-                </ImageList>
-            </SortableContext>
-            <AddPostFab onSaved={() => { void loadDrafts(true); }} />
-            
-            {/* Post Detail Modal */}
-            <PostDetailModal
-                post={selectedPost}
-                open={modalOpen}
-                onClose={() => {
-                    setModalOpen(false);
-                    setSelectedPost(null);
-                }}
-                onDelete={handlePostDelete}
-            />
-        </DndContext>
+                    onDelete={handlePostDelete}
+                />
+            </DndContext>
+        </Box>
     );
 }
 

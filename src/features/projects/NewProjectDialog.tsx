@@ -11,8 +11,12 @@ import CircularProgress from "@mui/material/CircularProgress";
 import { addProject, type Project, getLibraryHandle, setLibraryHandle, listProjects } from "../../lib/db";
 import { ensurePermissions, pickLibraryDir, saveImageToDir } from "../../lib/fs";
 import { compressImageToFile, shouldCompress } from "../../lib/image";
+import { FormControl, InputLabel, MenuItem, Select, Chip, Stack } from "@mui/material";
 
 type Props = { open: boolean; onClose: () => void; onSaved?: (projectId: string) => void };
+
+const TONE_OPTIONS = ["warm", "playful", "cozy", "witty", "friendly", "energetic", "Other..."];
+const MOOD_OPTIONS = ["calm", "cozy", "vibrant", "minimal", "moody", "playful", "Other..."];
 
 export default function NewProjectDialog({ open, onClose, onSaved }: Props) {
   const [files, setFiles] = React.useState<File[]>([]);
@@ -23,6 +27,15 @@ export default function NewProjectDialog({ open, onClose, onSaved }: Props) {
   const [compressing, setCompressing] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement | null>(null);
 
+  const [toneOption, setToneOption] = React.useState<string>("");
+  const [toneCustom, setToneCustom] = React.useState<string>("");
+  const [moodOption, setMoodOption] = React.useState<string>("");
+  const [moodCustom, setMoodCustom] = React.useState<string>("");
+  const [hashtags, setHashtags] = React.useState<string>("");
+  const [moods, setMoods] = React.useState<string[]>([]);
+  const [ideaInput, setIdeaInput] = React.useState<string>("");
+  const [postIdeas, setPostIdeas] = React.useState<string[]>([]);
+
   React.useEffect(() => {
     if (!open) {
       setFiles([]);
@@ -31,6 +44,14 @@ export default function NewProjectDialog({ open, onClose, onSaved }: Props) {
       setDragOver(false);
       setSaving(false);
       setCompressing(false);
+      setToneOption("");
+      setToneCustom("");
+      setMoodOption("");
+      setMoodCustom("");
+      setMoods([]);
+      setIdeaInput("");
+      setPostIdeas([]);
+      setHashtags("");
     }
   }, [open]);
 
@@ -39,6 +60,9 @@ export default function NewProjectDialog({ open, onClose, onSaved }: Props) {
     const imgs = Array.from(dropped).filter(f => f.type.startsWith("image/"));
     setFiles(prev => [...prev, ...imgs]);
   };
+
+  const resolveTone = () => (toneOption === "Other..." ? toneCustom.trim() : toneOption);
+  const resolveMood = () => (moodOption === "Other..." ? moodCustom.trim() : moodOption);
 
   const handleSave = async () => {
     if (files.length === 0 || !name.trim()) return;
@@ -85,6 +109,10 @@ export default function NewProjectDialog({ open, onClose, onSaved }: Props) {
         name: name.trim(),
         description: description.trim(),
         images: savedImages,
+        tone: resolveTone() || undefined,
+        hashtags: hashtags.trim() || undefined,
+        moods: moods.length ? moods : (resolveMood() ? [resolveMood()!] : undefined),
+        postIdeas: postIdeas.length ? postIdeas : undefined,
         createdAt: Date.now(),
         position: nextPos,
       };
@@ -104,24 +132,136 @@ export default function NewProjectDialog({ open, onClose, onSaved }: Props) {
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
       <DialogTitle>Create Project</DialogTitle>
       <DialogContent>
-        <TextField
-          fullWidth
-          label="Project Name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          sx={{ mb: 2, mt: 1 }}
-          required
-        />
-        
-        <TextField
-          fullWidth
-          label="Description"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          multiline
-          minRows={3}
-          sx={{ mb: 2 }}
-        />
+        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr', gap: 2 }}>
+          <TextField
+            fullWidth
+            label="Project Name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+          />
+          <TextField
+            fullWidth
+            label="Description"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            multiline
+            minRows={3}
+          />
+
+          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+            <FormControl fullWidth>
+              <InputLabel id="tone-label">Tone</InputLabel>
+              <Select
+                labelId="tone-label"
+                value={toneOption}
+                label="Tone"
+                onChange={(e) => setToneOption(e.target.value)}
+              >
+                {TONE_OPTIONS.map(opt => (
+                  <MenuItem key={opt} value={opt}>{opt}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            {toneOption === "Other..." && (
+              <TextField
+                fullWidth
+                label="Custom Tone"
+                value={toneCustom}
+                onChange={(e) => setToneCustom(e.target.value)}
+              />
+            )}
+          </Box>
+
+          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+            <FormControl fullWidth>
+              <InputLabel id="mood-label">Mood</InputLabel>
+              <Select
+                labelId="mood-label"
+                value={moodOption}
+                label="Mood"
+                onChange={(e) => setMoodOption(e.target.value)}
+              >
+                {MOOD_OPTIONS.map(opt => (
+                  <MenuItem key={opt} value={opt}>{opt}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            {moodOption === "Other..." && (
+              <TextField
+                fullWidth
+                label="Custom Mood"
+                value={moodCustom}
+                onChange={(e) => setMoodCustom(e.target.value)}
+              />
+            )}
+          </Box>
+
+          {/* Moods list */}
+          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr', gap: 1 }}>
+            <Typography variant="subtitle2">Moods list</Typography>
+            <TextField
+              fullWidth
+              label="Add a mood and press Enter"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  const value = (e.target as HTMLInputElement).value.trim();
+                  if (value) {
+                    setMoods(prev => Array.from(new Set([...prev, value])));
+                    (e.target as HTMLInputElement).value = '';
+                  }
+                }
+              }}
+            />
+            {moods.length > 0 && (
+              <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+                {moods.map((m, i) => (
+                  <Chip key={`${m}-${i}`} label={m} onDelete={() => setMoods(prev => prev.filter(x => x !== m))} />
+                ))}
+              </Stack>
+            )}
+          </Box>
+
+          {/* Post ideas list */}
+          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr', gap: 1 }}>
+            <Typography variant="subtitle2">Post ideas</Typography>
+            <TextField
+              fullWidth
+              label="Add an idea and press Enter"
+              value={ideaInput}
+              onChange={(e) => setIdeaInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  const value = ideaInput.trim();
+                  if (value) {
+                    setPostIdeas(prev => [...prev, value]);
+                    setIdeaInput('');
+                  }
+                }
+              }}
+            />
+            {postIdeas.length > 0 && (
+              <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+                {postIdeas.map((m, i) => (
+                  <Chip key={`${m}-${i}`} label={m} onDelete={() => setPostIdeas(prev => prev.filter((_, idx) => idx !== i))} />
+                ))}
+              </Stack>
+            )}
+          </Box>
+
+          <TextField
+            fullWidth
+            label="Hashtags"
+            value={hashtags}
+            onChange={(e) => setHashtags(e.target.value)}
+            multiline
+            minRows={2}
+            placeholder="#design #home #cozy"
+            helperText="Enter hashtags separated by spaces or new lines."
+          />
+        </Box>
 
         <Box
           onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
@@ -129,6 +269,7 @@ export default function NewProjectDialog({ open, onClose, onSaved }: Props) {
           onDrop={(e) => { e.preventDefault(); setDragOver(false); onDropFiles(e.dataTransfer.files); }}
           onClick={() => inputRef.current?.click()}
           sx={{
+            mt: 2,
             p: 2,
             border: '2px dashed',
             borderColor: dragOver ? 'primary.main' : 'divider',
@@ -151,7 +292,7 @@ export default function NewProjectDialog({ open, onClose, onSaved }: Props) {
         </Box>
         
         {files.length > 0 && (
-          <Box sx={{ mb: 2, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1 }}>
+          <Box sx={{ mb: 2, mt: 2, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1 }}>
             {files.map((file, idx) => (
               <Box key={`${file.name}-${idx}`} sx={{ position: 'relative', width: '100%', pt: '100%', borderRadius: 1, overflow: 'hidden', bgcolor: 'background.default' }}>
                 <Box
@@ -188,7 +329,7 @@ export default function NewProjectDialog({ open, onClose, onSaved }: Props) {
         <Button onClick={onClose} disabled={saving}>Cancel</Button>
         <Button 
           onClick={handleSave} 
-          disabled={saving || files.length === 0} 
+          disabled={saving || files.length === 0 || !name.trim()} 
           variant="contained"
           startIcon={compressing ? <CircularProgress size={16} /> : undefined}
         >

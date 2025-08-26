@@ -221,6 +221,11 @@ export default function DraggableImageList() {
                         setSelectedPost(null);
                     }}
                     onDelete={handlePostDelete}
+                    onPostUpdated={(updated) => {
+                        // update selected and items cache
+                        setSelectedPost(updated);
+                        setItems(prev => prev.map(it => it.id === updated.id ? { ...it, post: updated } : it));
+                    }}
                 />
             </DndContext>
         </Box>

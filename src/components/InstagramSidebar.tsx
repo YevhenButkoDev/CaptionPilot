@@ -1,7 +1,7 @@
 import * as React from "react";
 import { Box } from "@mui/material";
 
-export type InstagramSectionKey = "feed" | "generator";
+export type InstagramSectionKey = "feed" | "generator" | "scheduler";
 
 interface InstagramSidebarProps {
   selected: InstagramSectionKey;
@@ -36,6 +36,11 @@ export default function InstagramSidebar({ selected, onSelect }: InstagramSideba
           label="Generator"
           active={selected === "generator"}
           onClick={() => onSelect("generator")}
+        />
+        <InstagramSidebarButton
+          label="Scheduler"
+          active={selected === "scheduler"}
+          onClick={() => onSelect("scheduler")}
         />
       </nav>
     </aside>

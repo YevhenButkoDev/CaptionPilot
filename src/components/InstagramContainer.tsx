@@ -2,6 +2,7 @@ import * as React from "react";
 import InstagramSidebar, { type InstagramSectionKey } from "./InstagramSidebar";
 import DraggableImageList from "./InstagramLikeGrid";
 import AutoPosts from "./AutoPosts";
+import Scheduler from "./Scheduler";
 import { Box } from "@mui/material";
 
 export default function InstagramContainer() {
@@ -16,6 +17,7 @@ export default function InstagramContainer() {
       <Box sx={{ flex: 1, p: 2 }}>
         {instagramSection === "feed" && <DraggableImageList />}
         {instagramSection === "generator" && <AutoPosts />}
+        {instagramSection === "scheduler" && <Scheduler />}
       </Box>
     </div>
   );

@@ -32,12 +32,21 @@ export type PromptTemplate = {
   createdAt: number;
 };
 
+export type PostSchedule = {
+  id: string;
+  projectId: string;
+  frequency: '4_per_day' | '2_per_day' | '1_per_day' | '1_per_3_days' | '1_per_week';
+  startAt: number; // epoch ms
+  createdAt: number;
+};
+
 const DB_NAME = "inst-automation";
 const DB_VERSION = 3; // Increment version for new stores
 const STORE_KV = "kv";
 const STORE_POSTS = "draftPosts";
 const STORE_PROJECTS = "projects";
 const STORE_PROMPTS = "prompts";
+const STORE_SCHEDULES = "schedules";
 
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -57,6 +66,10 @@ function openDb(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains(STORE_PROMPTS)) {
         const store = db.createObjectStore(STORE_PROMPTS, { keyPath: "id" });
+        store.createIndex("createdAt", "createdAt", { unique: false });
+      }
+      if (!db.objectStoreNames.contains(STORE_SCHEDULES)) {
+        const store = db.createObjectStore(STORE_SCHEDULES, { keyPath: "id" });
         store.createIndex("createdAt", "createdAt", { unique: false });
       }
     };
@@ -226,6 +239,31 @@ export async function deletePrompt(id: string): Promise<void> {
     const store = tx.objectStore(STORE_PROMPTS);
     const req = store.delete(id);
     req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function addSchedule(schedule: PostSchedule): Promise<void> {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_SCHEDULES, 'readwrite');
+    const store = tx.objectStore(STORE_SCHEDULES);
+    const req = store.add(schedule);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function listSchedulesByProject(projectId: string): Promise<PostSchedule[]> {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_SCHEDULES, 'readonly');
+    const store = tx.objectStore(STORE_SCHEDULES);
+    const req = store.getAll();
+    req.onsuccess = () => {
+      const all = (req.result as PostSchedule[]) || [];
+      resolve(all.filter(s => s.projectId === projectId));
+    };
     req.onerror = () => reject(req.error);
   });
 }

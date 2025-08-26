@@ -14,21 +14,24 @@ interface PostDetailModalProps {
   open: boolean;
   onClose: () => void;
   onDelete: (postId: string) => void;
+  onPostUpdated?: (post: DraftPost) => void;
 }
 
-export default function PostDetailModal({ post, open, onClose, onDelete }: PostDetailModalProps) {
+export default function PostDetailModal({ post, open, onClose, onDelete, onPostUpdated }: PostDetailModalProps) {
   const [currentImageIndex, setCurrentImageIndex] = React.useState(0);
   const [imageUrls, setImageUrls] = React.useState<string[]>([]);
   const [loading, setLoading] = React.useState(false);
   const [captionIndex, setCaptionIndex] = React.useState<number>(post?.selectedCaptionIndex ?? 0);
   const [captionDraft, setCaptionDraft] = React.useState<string>(post?.caption ?? "");
   const [saving, setSaving] = React.useState(false);
+  const [localCaptions, setLocalCaptions] = React.useState<string[] | null>(post?.aiCaptions ?? null);
 
   React.useEffect(() => {
     if (open && post) {
       setCurrentImageIndex(0);
       setCaptionIndex(post.selectedCaptionIndex ?? 0);
       setCaptionDraft(post.caption || "");
+      setLocalCaptions(post.aiCaptions ?? null);
       loadImages();
     }
   }, [open, post]);
@@ -72,7 +75,6 @@ export default function PostDetailModal({ post, open, onClose, onDelete }: PostD
   };
 
   const handleClose = () => {
-    // Clean up object URLs
     imageUrls.forEach(url => URL.revokeObjectURL(url));
     setImageUrls([]);
     onClose();
@@ -81,10 +83,12 @@ export default function PostDetailModal({ post, open, onClose, onDelete }: PostD
   const handleCaptionChange = async (index: number) => {
     if (!post) return;
     try {
-      const updated: DraftPost = { ...post, selectedCaptionIndex: index, caption: post.aiCaptions?.[index] ?? post.caption };
+      const source = localCaptions && localCaptions.length > 0 ? localCaptions : [post.caption];
+      const updated: DraftPost = { ...post, selectedCaptionIndex: index, caption: source[index] ?? post.caption };
       await updateDraftPost(updated);
       setCaptionIndex(index);
       setCaptionDraft(updated.caption);
+      onPostUpdated?.(updated);
     } catch (e) {
       // ignore persist error
     }
@@ -94,8 +98,12 @@ export default function PostDetailModal({ post, open, onClose, onDelete }: PostD
     if (!post) return;
     try {
       setSaving(true);
-      const updated: DraftPost = { ...post, caption: captionDraft };
+      const finalCaption = captionDraft;
+      const updated: DraftPost = { ...post, caption: finalCaption, aiCaptions: [finalCaption], selectedCaptionIndex: 0 };
       await updateDraftPost(updated);
+      setLocalCaptions([finalCaption]);
+      setCaptionIndex(0);
+      onPostUpdated?.(updated);
     } catch (e) {
       // ignore
     } finally {
@@ -105,7 +113,7 @@ export default function PostDetailModal({ post, open, onClose, onDelete }: PostD
 
   if (!post) return null;
 
-  const captions = post.aiCaptions && post.aiCaptions.length > 0 ? post.aiCaptions : [post.caption];
+  const captions = localCaptions && localCaptions.length > 0 ? localCaptions : [post.caption];
 
   return (
     <Dialog 
@@ -122,7 +130,7 @@ export default function PostDetailModal({ post, open, onClose, onDelete }: PostD
         }
       }}
     >
-      <DialogContent sx={{ p: 0, display: "flex", height: "100%" }}>
+      <DialogContent sx={{ p: 0, display: "flex", height: "100%", overflow: "hidden" }}>
         {/* Left side - Image carousel */}
         <Box sx={{ 
           flex: "1", 
@@ -130,13 +138,13 @@ export default function PostDetailModal({ post, open, onClose, onDelete }: PostD
           bgcolor: "black",
           display: "flex",
           alignItems: "center",
-          justifyContent: "center"
+          justifyContent: "center",
+          minWidth: 0
         }}>
           {loading ? (
             <Typography color="white">Loading...</Typography>
           ) : imageUrls.length > 0 ? (
             <>
-              {/* Main image */}
               <Box
                 component="img"
                 src={imageUrls[currentImageIndex]}
@@ -148,31 +156,17 @@ export default function PostDetailModal({ post, open, onClose, onDelete }: PostD
                   userSelect: "none"
                 }}
               />
-              
-              {/* Navigation arrows */}
               {post.images.length > 1 && (
                 <>
                   <IconButton
                     onClick={handlePrevious}
-                    sx={{
-                      position: "absolute",
-                      left: 8,
-                      color: "white",
-                      bgcolor: "rgba(0,0,0,0.5)",
-                      "&:hover": { bgcolor: "rgba(0,0,0,0.7)" }
-                    }}
+                    sx={{ position: "absolute", left: 8, color: "white", bgcolor: "rgba(0,0,0,0.5)", "&:hover": { bgcolor: "rgba(0,0,0,0.7)" } }}
                   >
                     <ChevronLeft />
                   </IconButton>
                   <IconButton
                     onClick={handleNext}
-                    sx={{
-                      position: "absolute",
-                      right: 8,
-                      color: "white",
-                      bgcolor: "rgba(0,0,0,0.5)",
-                      "&:hover": { bgcolor: "rgba(0,0,0,0.7)" }
-                    }}
+                    sx={{ position: "absolute", right: 8, color: "white", bgcolor: "rgba(0,0,0,0.5)", "&:hover": { bgcolor: "rgba(0,0,0,0.7)" } }}
                   >
                     <ChevronRight />
                   </IconButton>
@@ -185,29 +179,11 @@ export default function PostDetailModal({ post, open, onClose, onDelete }: PostD
         </Box>
 
         {/* Right side - Caption and actions */}
-        <Box sx={{ 
-          width: "350px", 
-          p: 3, 
-          display: "flex", 
-          flexDirection: "column",
-          borderLeft: "1px solid #dbdbdb"
-        }}>
-          {/* Header with close and delete */}
-          <Box sx={{ 
-            display: "flex", 
-            justifyContent: "space-between", 
-            alignItems: "center",
-            mb: 2
-          }}>
-            <Typography variant="h6" sx={{ fontWeight: "bold" }}>
-              Post Details
-            </Typography>
+        <Box sx={{ width: "350px", p: 3, display: "flex", flexDirection: "column", borderLeft: "1px solid #dbdbdb", minWidth: 0 }}>
+          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2, flexShrink: 0 }}>
+            <Typography variant="h6" sx={{ fontWeight: "bold" }}>Post Details</Typography>
             <Box>
-              <IconButton
-                onClick={handleDelete}
-                sx={{ color: "error.main", mr: 1 }}
-                size="small"
-              >
+              <IconButton onClick={handleDelete} sx={{ color: "error.main", mr: 1 }} size="small">
                 <Delete />
               </IconButton>
               <IconButton onClick={handleClose} size="small">
@@ -216,43 +192,25 @@ export default function PostDetailModal({ post, open, onClose, onDelete }: PostD
             </Box>
           </Box>
 
-          {/* Caption selector */}
-          {post.aiCaptions && post.aiCaptions.length > 0 && (
-            <FormControl fullWidth sx={{ mb: 1 }}>
+          {captions.length > 1 && (
+            <FormControl fullWidth sx={{ mb: 1, flexShrink: 0 }}>
               <InputLabel id="caption-select-label">AI Captions</InputLabel>
-              <Select
-                labelId="caption-select-label"
-                value={captionIndex}
-                label="AI Captions"
-                onChange={(e) => handleCaptionChange(Number(e.target.value))}
-              >
-                {post.aiCaptions.map((c, idx) => (
-                  <MenuItem key={idx} value={idx}>{`Caption ${idx + 1}`}</MenuItem>
-                ))}
+              <Select labelId="caption-select-label" value={captionIndex} label="AI Captions" onChange={(e) => handleCaptionChange(Number(e.target.value))}>
+                {captions.map((c, idx) => (<MenuItem key={idx} value={idx}>{`Caption ${idx + 1}`}</MenuItem>))}
               </Select>
             </FormControl>
           )}
 
-          {/* Editable caption */}
-          <TextField
-            value={captionDraft}
-            onChange={(e) => setCaptionDraft(e.target.value)}
-            multiline
-            minRows={6}
-            sx={{ mb: 1 }}
-          />
-          <Button variant="contained" size="small" onClick={handleSaveCaption} startIcon={<SaveIcon />} disabled={saving}>
+          <Box sx={{ flex: 1, minHeight: 0, overflow: "auto", mb: 1 }}>
+            <TextField value={captionDraft} onChange={(e) => setCaptionDraft(e.target.value)} multiline fullWidth minRows={6} sx={{ width: "100%", '& textarea': { overflow: 'auto' } }} />
+          </Box>
+          <Button variant="contained" size="small" onClick={handleSaveCaption} startIcon={<SaveIcon />} disabled={saving} sx={{ flexShrink: 0 }}>
             {saving ? 'Saving...' : 'Save Caption'}
           </Button>
 
-          {/* Meta */}
-          <Box sx={{ mt: 2, pt: 2, borderTop: "1px solid #dbdbdb" }}>
-            <Typography variant="caption" color="text.secondary">
-              Created: {new Date(post.createdAt).toLocaleDateString()}
-            </Typography>
-            <Typography variant="caption" color="text.secondary" display="block">
-              Images: {post.images.length}
-            </Typography>
+          <Box sx={{ mt: 2, pt: 2, borderTop: "1px solid #dbdbdb", flexShrink: 0 }}>
+            <Typography variant="caption" color="text.secondary">Created: {new Date(post.createdAt).toLocaleDateString()}</Typography>
+            <Typography variant="caption" color="text.secondary" display="block">Images: {post.images.length}</Typography>
           </Box>
         </Box>
       </DialogContent>

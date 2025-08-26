@@ -175,10 +175,6 @@ export default function Settings() {
       <Typography variant="h4" sx={{ mb: 3, fontWeight: "bold" }}>
         Settings
       </Typography>
-      
-      <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-        Configure your API keys and manage caption prompts.
-      </Typography>
 
       <Paper sx={{ p: 4, mb: 4 }}>
         <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>

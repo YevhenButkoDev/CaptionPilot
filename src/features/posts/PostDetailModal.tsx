@@ -67,6 +67,29 @@ export default function PostDetailModal({ post, open, onClose, onDelete, onPostU
     );
   };
 
+  const handleSetAsMain = async () => {
+    if (!post) return;
+    try {
+      const images = [...post.images];
+      const [selected] = images.splice(currentImageIndex, 1);
+      images.unshift(selected);
+      const updated: DraftPost = { ...post, images };
+      await updateDraftPost(updated);
+      // Reorder local urls to match without refetch
+      setImageUrls(prev => {
+        if (!prev || prev.length === 0) return prev;
+        const urls = [...prev];
+        const [u] = urls.splice(currentImageIndex, 1);
+        urls.unshift(u);
+        return urls;
+      });
+      setCurrentImageIndex(0);
+      onPostUpdated?.(updated);
+    } catch (e) {
+      // ignore
+    }
+  };
+
   const handleDelete = () => {
     if (post && window.confirm("Are you sure you want to delete this post?")) {
       onDelete(post.id);
@@ -170,6 +193,12 @@ export default function PostDetailModal({ post, open, onClose, onDelete, onPostU
                   >
                     <ChevronRight />
                   </IconButton>
+                  {/* Slider dots */}
+                  <Box sx={{ position: 'absolute', bottom: 8, left: 0, right: 0, display: 'flex', justifyContent: 'center', gap: 1 }}>
+                    {imageUrls.map((_, idx) => (
+                      <Box key={idx} sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: idx === currentImageIndex ? 'white' : 'rgba(255,255,255,0.5)' }} />
+                    ))}
+                  </Box>
                 </>
               )}
             </>
@@ -207,6 +236,12 @@ export default function PostDetailModal({ post, open, onClose, onDelete, onPostU
           <Button variant="contained" size="small" onClick={handleSaveCaption} startIcon={<SaveIcon />} disabled={saving} sx={{ flexShrink: 0 }}>
             {saving ? 'Saving...' : 'Save Caption'}
           </Button>
+
+          {post.images.length > 1 && (
+            <Button variant="outlined" size="small" onClick={handleSetAsMain} sx={{ mt: 1, flexShrink: 0 }}>
+              Set as main
+            </Button>
+          )}
 
           <Box sx={{ mt: 2, pt: 2, borderTop: "1px solid #dbdbdb", flexShrink: 0 }}>
             <Typography variant="caption" color="text.secondary">Created: {new Date(post.createdAt).toLocaleDateString()}</Typography>

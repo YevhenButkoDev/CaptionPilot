@@ -82,6 +82,7 @@ export default function NewPostDialog({ open, onClose, onSaved }: Props) {
         caption,
         images: savedImages,
         position: nextPos,
+        status: 'new',
       };
       await addDraftPost(post);
       onSaved?.(id);

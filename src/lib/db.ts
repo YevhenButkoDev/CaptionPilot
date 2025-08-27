@@ -10,6 +10,7 @@ export type DraftPost = {
   images: { fileName: string; mimeType: string; size: number }[];
   projectId?: string;
   position?: number; // lower comes first; fallback to createdAt desc if missing
+  status?: 'new' | 'published' | 'scheduled';
 };
 
 export type Project = {
@@ -41,7 +42,7 @@ export type PostSchedule = {
 };
 
 const DB_NAME = "inst-automation";
-const DB_VERSION = 3; // Increment version for new stores
+const DB_VERSION = 4; // Increment version for new stores
 const STORE_KV = "kv";
 const STORE_POSTS = "draftPosts";
 const STORE_PROJECTS = "projects";
@@ -264,6 +265,32 @@ export async function listSchedulesByProject(projectId: string): Promise<PostSch
       const all = (req.result as PostSchedule[]) || [];
       resolve(all.filter(s => s.projectId === projectId));
     };
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function listSchedules(): Promise<PostSchedule[]> {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_SCHEDULES, 'readonly');
+    const store = tx.objectStore(STORE_SCHEDULES);
+    const req = store.getAll();
+    req.onsuccess = () => {
+      const all = (req.result as PostSchedule[]) || [];
+      all.sort((a, b) => b.createdAt - a.createdAt);
+      resolve(all);
+    };
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function deleteSchedule(id: string): Promise<void> {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_SCHEDULES, 'readwrite');
+    const store = tx.objectStore(STORE_SCHEDULES);
+    const req = store.delete(id);
+    req.onsuccess = () => resolve();
     req.onerror = () => reject(req.error);
   });
 }

@@ -1,5 +1,6 @@
 import * as React from "react";
 import { ImageList, ImageListItem, Box, Alert, Button } from "@mui/material";
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import {
     DndContext,
     closestCenter,
@@ -17,6 +18,7 @@ import { CSS } from "@dnd-kit/utilities";
 import AddPostFab from "../features/posts/AddPostFab";
 import PostDetailModal from "../features/posts/PostDetailModal";
 import { getLibraryHandle, listDraftPosts, setLibraryHandle, updateDraftPositions, deleteDraftPost, type DraftPost } from "../lib/db";
+import { listSchedules } from "../lib/db";
 import { ensurePermissions, getImageUrl, pickLibraryDir, deleteImageFromDir } from "../lib/fs";
 
 type GridItem = { id: string; url: string; post: DraftPost };
@@ -27,6 +29,7 @@ export default function DraggableImageList() {
     const [imageCache, setImageCache] = React.useState<Map<string, string>>(new Map());
     const [selectedPost, setSelectedPost] = React.useState<DraftPost | null>(null);
     const [modalOpen, setModalOpen] = React.useState(false);
+    const [hasSchedule, setHasSchedule] = React.useState(false);
     const sortableIds = React.useMemo(() => items.map(i => i.id), [items]);
 
     const sensors = useSensors(
@@ -113,7 +116,15 @@ export default function DraggableImageList() {
     }, [imageCache, items.length]);
 
     React.useEffect(() => {
-        void loadDrafts();
+        void (async () => {
+            void loadDrafts();
+            try {
+                const scheds = await listSchedules();
+                setHasSchedule(scheds.length > 0);
+            } catch {
+                setHasSchedule(false);
+            }
+        })();
     }, []);
 
     const handlePostClick = (post: DraftPost) => {
@@ -205,6 +216,7 @@ export default function DraggableImageList() {
                                 key={it.id} 
                                 id={it.id} 
                                 src={it.url} 
+                                showScheduledBadge={hasSchedule && (it.post.status === 'scheduled' || it.post.status === undefined || it.post.status === 'new')}
                                 onClick={() => handlePostClick(it.post)}
                             />
                         ))}
@@ -225,6 +237,22 @@ export default function DraggableImageList() {
                         // update selected and items cache
                         setSelectedPost(updated);
                         setItems(prev => prev.map(it => it.id === updated.id ? { ...it, post: updated } : it));
+                        // if main image changed, refresh its cached URL for first image only
+                        (async () => {
+                            try {
+                                const dir = await getLibraryHandle();
+                                if (!dir) return;
+                                const first = updated.images[0];
+                                if (!first) return;
+                                const url = await getImageUrl(dir, first.fileName);
+                                setImageCache(prev => {
+                                    const next = new Map(prev);
+                                    next.set(updated.id, url);
+                                    return next;
+                                });
+                                setItems(prev => prev.map(it => it.id === updated.id ? { ...it, url } : it));
+                            } catch {}
+                        })();
                     }}
                 />
             </DndContext>
@@ -235,11 +263,13 @@ export default function DraggableImageList() {
 function SortableTile({ 
     id, 
     src, 
-    onClick 
+    onClick,
+    showScheduledBadge
 }: { 
     id: string; 
     src: string; 
     onClick: () => void;
+    showScheduledBadge?: boolean;
 }) {
     const { setNodeRef, attributes, listeners, transform, transition, isDragging } =
         useSortable({ id });
@@ -257,7 +287,7 @@ function SortableTile({
             style={style}
             {...attributes}
             {...listeners}
-            sx={{ userSelect: "none", touchAction: "none" }}
+            sx={{ userSelect: "none", touchAction: "none", position: 'relative' }}
         >
             <Box
                 component="img"
@@ -279,6 +309,11 @@ function SortableTile({
                     }
                 }}
             />
+            {showScheduledBadge && (
+                <Box sx={{ position: 'absolute', top: 6, right: 6, bgcolor: 'rgba(0,0,0,0.5)', borderRadius: '50%', p: '2px', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <AccessTimeIcon fontSize="small" />
+                </Box>
+            )}
         </ImageListItem>
     );
 }

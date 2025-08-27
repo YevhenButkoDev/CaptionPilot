@@ -19,9 +19,7 @@ export type Project = {
   description: string;
   images: { fileName: string; mimeType: string; size: number }[];
   tone?: string;
-  hashtags?: string;
-  moods?: string[];
-  postIdeas?: string[];
+  website?: string;
   createdAt: number;
   position?: number; // lower comes first; fallback to createdAt desc if missing
 };
@@ -41,13 +39,28 @@ export type PostSchedule = {
   createdAt: number;
 };
 
+export type GeneratorTemplate = {
+  id: string;
+  name: string;
+  projectId: string; // source project for images
+  minImages: number;
+  maxImages: number;
+  promptIds: string[]; // prompt template ids
+  postIdeas: string[]; // user-specified ideas
+  moods?: string[];
+  hashtags?: string;
+  numPosts: number;
+  createdAt: number;
+};
+
 const DB_NAME = "inst-automation";
-const DB_VERSION = 4; // Increment version for new stores
+const DB_VERSION = 5; // Increment version for new stores
 const STORE_KV = "kv";
 const STORE_POSTS = "draftPosts";
 const STORE_PROJECTS = "projects";
 const STORE_PROMPTS = "prompts";
 const STORE_SCHEDULES = "schedules";
+const STORE_GENERATOR_TEMPLATES = "generatorTemplates";
 
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -71,6 +84,10 @@ function openDb(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains(STORE_SCHEDULES)) {
         const store = db.createObjectStore(STORE_SCHEDULES, { keyPath: "id" });
+        store.createIndex("createdAt", "createdAt", { unique: false });
+      }
+      if (!db.objectStoreNames.contains(STORE_GENERATOR_TEMPLATES)) {
+        const store = db.createObjectStore(STORE_GENERATOR_TEMPLATES, { keyPath: "id" });
         store.createIndex("createdAt", "createdAt", { unique: false });
       }
     };
@@ -238,6 +255,44 @@ export async function deletePrompt(id: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_PROMPTS, 'readwrite');
     const store = tx.objectStore(STORE_PROMPTS);
+    const req = store.delete(id);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+
+// Generator Templates CRUD
+export async function addGeneratorTemplate(t: GeneratorTemplate): Promise<void> {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_GENERATOR_TEMPLATES, 'readwrite');
+    const store = tx.objectStore(STORE_GENERATOR_TEMPLATES);
+    const req = store.add(t);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function listGeneratorTemplates(): Promise<GeneratorTemplate[]> {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_GENERATOR_TEMPLATES, 'readonly');
+    const store = tx.objectStore(STORE_GENERATOR_TEMPLATES);
+    const req = store.getAll();
+    req.onsuccess = () => {
+      const all = (req.result as GeneratorTemplate[]) || [];
+      all.sort((a, b) => b.createdAt - a.createdAt);
+      resolve(all);
+    };
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function deleteGeneratorTemplate(id: string): Promise<void> {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_GENERATOR_TEMPLATES, 'readwrite');
+    const store = tx.objectStore(STORE_GENERATOR_TEMPLATES);
     const req = store.delete(id);
     req.onsuccess = () => resolve();
     req.onerror = () => reject(req.error);

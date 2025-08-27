@@ -8,7 +8,7 @@ import TextField from "@mui/material/TextField";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import CircularProgress from "@mui/material/CircularProgress";
-import { addDraftPost, type DraftPost, getLibraryHandle, setLibraryHandle, listDraftPosts } from "../../lib/db";
+import { addDraftPost, type DraftPost, getLibraryHandle, setLibraryHandle } from "../../lib/db";
 import { ensurePermissions, pickLibraryDir, saveImageToDir } from "../../lib/fs";
 import { compressImageToFile, shouldCompress } from "../../lib/image";
 
@@ -73,9 +73,8 @@ export default function NewPostDialog({ open, onClose, onSaved }: Props) {
       }
 
       const id = (crypto as any).randomUUID?.() ?? Math.random().toString(36).slice(2);
-      // Determine next position (append to end)
-      const existing = await listDraftPosts();
-      const nextPos = existing.length;
+      // Place new post at the start by giving it a smaller position
+      const nextPos = -1;
       const post: DraftPost = {
         id,
         createdAt: Date.now(),

@@ -21,6 +21,7 @@ export default function NewProjectDialog({ open, onClose, onSaved }: Props) {
   const [files, setFiles] = React.useState<File[]>([]);
   const [name, setName] = React.useState("");
   const [description, setDescription] = React.useState("");
+  const [website, setWebsite] = React.useState<string>("");
   const [dragOver, setDragOver] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
   const [compressing, setCompressing] = React.useState(false);
@@ -39,6 +40,7 @@ export default function NewProjectDialog({ open, onClose, onSaved }: Props) {
       setFiles([]);
       setName("");
       setDescription("");
+      setWebsite("");
       setDragOver(false);
       setSaving(false);
       setCompressing(false);
@@ -103,10 +105,8 @@ export default function NewProjectDialog({ open, onClose, onSaved }: Props) {
         name: name.trim(),
         description: description.trim(),
         images: savedImages,
-        hashtags: hashtags.trim() || undefined,
         tone: (toneOption === "Other..." ? toneCustom.trim() : toneOption) || undefined,
-        moods: moods.length ? moods : undefined,
-        postIdeas: postIdeas.length ? postIdeas : undefined,
+        website: website.trim() || undefined,
         createdAt: Date.now(),
         position: nextPos,
       };
@@ -144,61 +144,14 @@ export default function NewProjectDialog({ open, onClose, onSaved }: Props) {
             placeholder="Supports simple markdown like **bold** and *italic*"
           />
 
-          {/* Moods list */}
-          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr', gap: 1 }}>
-            <Typography variant="subtitle2">Moods list</Typography>
-            <TextField
-              fullWidth
-              label="Add a mood and press Enter"
-              value={moodInput}
-              onChange={(e) => setMoodInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  const value = moodInput.trim();
-                  if (value) {
-                    setMoods(prev => Array.from(new Set([...prev, value])));
-                    setMoodInput('');
-                  }
-                }
-              }}
-            />
-            {moods.length > 0 && (
-              <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-                {moods.map((m, i) => (
-                  <Chip key={`${m}-${i}`} label={m} onDelete={() => setMoods(prev => prev.filter((_, idx) => idx !== i))} />
-                ))}
-              </Stack>
-            )}
-          </Box>
-
-          {/* Post ideas list */}
-          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr', gap: 1 }}>
-            <Typography variant="subtitle2">Post ideas</Typography>
-            <TextField
-              fullWidth
-              label="Add an idea and press Enter"
-              value={ideaInput}
-              onChange={(e) => setIdeaInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  const value = ideaInput.trim();
-                  if (value) {
-                    setPostIdeas(prev => [...prev, value]);
-                    setIdeaInput('');
-                  }
-                }
-              }}
-            />
-            {postIdeas.length > 0 && (
-              <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-                {postIdeas.map((m, i) => (
-                  <Chip key={`${m}-${i}`} label={m} onDelete={() => setPostIdeas(prev => prev.filter((_, idx) => idx !== i))} />
-                ))}
-              </Stack>
-            )}
-          </Box>
+          <TextField
+            fullWidth
+            label="Website"
+            value={website}
+            onChange={(e) => setWebsite(e.target.value)}
+            placeholder="https://example.com"
+            type="url"
+          />
 
           {/* Tone */}
           <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
@@ -225,16 +178,7 @@ export default function NewProjectDialog({ open, onClose, onSaved }: Props) {
             )}
           </Box>
 
-          <TextField
-            fullWidth
-            label="Hashtags"
-            value={hashtags}
-            onChange={(e) => setHashtags(e.target.value)}
-            multiline
-            minRows={2}
-            placeholder="#design #home #cozy"
-            helperText="Enter hashtags separated by spaces or new lines."
-          />
+          {/* Hashtags moved to generator */}
         </Box>
 
         <Box

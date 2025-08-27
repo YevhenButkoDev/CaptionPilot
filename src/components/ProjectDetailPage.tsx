@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Box, Typography, IconButton, ImageList, ImageListItem, Alert, Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, CircularProgress, Chip, Stack, Fab, useTheme, Paper } from "@mui/material";
+import { Box, Typography, IconButton, ImageList, ImageListItem, Alert, Button, Dialog, DialogTitle, DialogContent, DialogActions, Fab, Paper } from "@mui/material";
 import { ArrowBack, Add, Remove } from "@mui/icons-material";
 import { getProject, updateProject, type Project, getLibraryHandle } from "../lib/db";
 import { getImageUrl, saveImageToDir, ensurePermissions } from "../lib/fs";
@@ -19,7 +19,6 @@ interface ProjectDetailPageProps {
 }
 
 export default function ProjectDetailPage({ projectId, onBack }: ProjectDetailPageProps) {
-  const theme = useTheme();
   const [project, setProject] = React.useState<Project | null>(null);
   const [imageUrls, setImageUrls] = React.useState<string[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -106,25 +105,13 @@ export default function ProjectDetailPage({ projectId, onBack }: ProjectDetailPa
         {project.description && (
           <Typography variant="body1" color="text.secondary" sx={{ mb: 1 }} component="div" dangerouslySetInnerHTML={{ __html: renderMarkdownToHtml(project.description) }} />
         )}
-        {(project.hashtags) && (
-          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', mb: 1 }}>
-            <Chip label={`Hashtags: ${project.hashtags}`} size="small" />
-          </Stack>
-        )}
-        {(project.moods && project.moods.length > 0) && (
+        {/* Hashtags/Moods/Post Ideas moved to generator */}
+        {project.website && (
           <Box sx={{ mt: 1 }}>
-            <Typography variant="subtitle2">Moods</Typography>
-            <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-              {project.moods.map((m, i) => (<Chip key={`${m}-${i}`} label={m} size="small" />))}
-            </Stack>
-          </Box>
-        )}
-        {(project.postIdeas && project.postIdeas.length > 0) && (
-          <Box sx={{ mt: 1 }}>
-            <Typography variant="subtitle2">Post Ideas</Typography>
-            <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-              {project.postIdeas.map((m, i) => (<Chip key={`${m}-${i}`} label={m} size="small" />))}
-            </Stack>
+            <Typography variant="subtitle2">Website</Typography>
+            <Typography variant="body2">
+              <a href={project.website} target="_blank" rel="noopener noreferrer">{project.website}</a>
+            </Typography>
           </Box>
         )}
       </Paper>

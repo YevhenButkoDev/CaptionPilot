@@ -11,11 +11,20 @@ import {
   Alert,
   CircularProgress,
   Paper,
-  Chip
+  Chip,
+  Stack,
+  IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions
 } from "@mui/material";
+import { List, ListItem, ListItemText, Divider, Tooltip } from "@mui/material";
+import DeleteIcon from '@mui/icons-material/Delete';
 import { listProjects, type Project } from "../lib/db";
 import { addDraftPost, type DraftPost } from "../lib/db";
 import { listPrompts, type PromptTemplate } from "../lib/db";
+import { addGeneratorTemplate, listGeneratorTemplates, deleteGeneratorTemplate, type GeneratorTemplate } from "../lib/db";
 
 async function generateCaptionWithOpenAI(prompt: string): Promise<string[] | null> {
   try {
@@ -108,6 +117,24 @@ export default function AutoPosts() {
   const [success, setSuccess] = React.useState<string | null>(null);
   const [availablePrompts, setAvailablePrompts] = React.useState<PromptTemplate[]>([]);
   const [selectedPromptIds, setSelectedPromptIds] = React.useState<string[]>([]);
+  const [numPosts, setNumPosts] = React.useState<number>(1);
+  const [ideasInput, setIdeasInput] = React.useState<string>("");
+  const [templates, setTemplates] = React.useState<GeneratorTemplate[]>([]);
+  const [templateDialogOpen, setTemplateDialogOpen] = React.useState(false);
+  const [templateName, setTemplateName] = React.useState("");
+  const [generatorMoods, setGeneratorMoods] = React.useState<string>("");
+  const [generatorHashtags, setGeneratorHashtags] = React.useState<string>("");
+
+  const applyTemplateToForm = React.useCallback((tpl: GeneratorTemplate) => {
+    setSelectedProjectId(tpl.projectId);
+    setMinImages(tpl.minImages);
+    setMaxImages(tpl.maxImages);
+    setNumPosts(tpl.numPosts);
+    setSelectedPromptIds(tpl.promptIds);
+    setIdeasInput((tpl.postIdeas || []).join("\n"));
+    setGeneratorMoods((tpl.moods || []).join("\n"));
+    setGeneratorHashtags(tpl.hashtags || "");
+  }, []);
 
   React.useEffect(() => {
     (async () => {
@@ -118,6 +145,8 @@ export default function AutoPosts() {
         if (projectsList.length > 0) setSelectedProjectId(projectsList[0].id);
         const prompts = await listPrompts();
         setAvailablePrompts(prompts);
+        const tpls = await listGeneratorTemplates();
+        setTemplates(tpls);
       } catch (e) {
         setError("Failed to load data");
       } finally {
@@ -131,6 +160,16 @@ export default function AutoPosts() {
       setError("Please select a project and ensure min images ≤ max images");
       return;
     }
+    if (!Number.isFinite(numPosts) || numPosts < 1) {
+      setError("Enter a valid number of posts (at least 1)");
+      return;
+    }
+    const userIdeas = ideasInput.split(/\n|,/).map(s => s.trim()).filter(Boolean);
+    if (userIdeas.length === 0) {
+      setError("Enter at least one Post Idea");
+      return;
+    }
+    const moods = generatorMoods.split(/\n|,/).map(s => s.trim()).filter(Boolean);
     if (selectedPromptIds.length === 0 && availablePrompts.length === 0) {
       setError("Select at least one prompt in the list (Settings → Prompt Management)");
       return;
@@ -155,7 +194,7 @@ export default function AutoPosts() {
         setGenerating(false);
         return;
       }
-      const generatedPosts = await generatePostsFromProject(selectedProject, minImages, maxImages, promptsToUse);
+      const generatedPosts = await generatePostsFromProject(selectedProject, minImages, maxImages, promptsToUse, numPosts, userIdeas, moods, generatorHashtags.trim());
       setSuccess(`Successfully generated ${generatedPosts.length} posts!`);
     } catch (error) {
       console.error("Failed to generate posts:", error);
@@ -169,9 +208,13 @@ export default function AutoPosts() {
     project: Project, 
     minImages: number, 
     maxImages: number,
-    promptsToUse: string[]
+    promptsToUse: string[],
+    desiredCount: number,
+    userIdeas: string[],
+    moods: string[],
+    hashtags: string
   ): Promise<DraftPost[]> => {
-    const { images, description, hashtags, moods, postIdeas, tone } = project;
+    const { images, description, tone } = project;
     const posts: DraftPost[] = [];
 
     const totalImages = images.length;
@@ -182,12 +225,12 @@ export default function AutoPosts() {
       throw new Error(`Project has only ${totalImages} images, but minimum is ${minImagesPerPost}`);
     }
 
-    // Build pool of unique mood/idea pairs
-    let pairs = uniquePairs(moods || [], postIdeas || []);
+    // Build pool of unique mood/idea pairs using user ideas, not project ideas
+    let pairs = uniquePairs(moods || [], userIdeas);
 
     let imageIndex = 0;
     let promptIdx = 0;
-    while (imageIndex < totalImages) {
+    while (imageIndex < totalImages && posts.length < desiredCount) {
       if (pairs.length === 0) break;
 
       const remainingImages = totalImages - imageIndex;
@@ -237,7 +280,7 @@ export default function AutoPosts() {
   };
 
   const selectedProject = projects.find(p => p.id === selectedProjectId);
-  const canGenerate = selectedProject && selectedProject.images.length > 0 && minImages <= maxImages;
+  const canGenerate = selectedProject && selectedProject.images.length > 0 && minImages <= maxImages && numPosts >= 1;
 
   if (loading) {
     return (
@@ -284,6 +327,37 @@ export default function AutoPosts() {
         <Box sx={{ display: "flex", gap: 2, mb: 3 }}>
           <TextField label="Min images per post" type="number" value={minImages} onChange={(e) => setMinImages(Number(e.target.value))} inputProps={{ min: 1, max: 6 }} sx={{ flex: 1 }} />
           <TextField label="Max images per post" type="number" value={maxImages} onChange={(e) => setMaxImages(Number(e.target.value))} inputProps={{ min: 1, max: 6 }} sx={{ flex: 1 }} />
+          <TextField label="# of posts" type="number" value={numPosts} onChange={(e) => setNumPosts(Number(e.target.value))} inputProps={{ min: 1 }} sx={{ flex: 1 }} />
+        </Box>
+
+        <TextField
+          fullWidth
+          label="Post ideas (comma or newline separated)"
+          value={ideasInput}
+          onChange={(e) => setIdeasInput(e.target.value)}
+          multiline
+          minRows={3}
+          sx={{ mb: 3 }}
+        />
+
+        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mb: 3 }}>
+          <TextField
+            fullWidth
+            label="Moods (comma or newline separated)"
+            value={generatorMoods}
+            onChange={(e) => setGeneratorMoods(e.target.value)}
+            multiline
+            minRows={3}
+          />
+          <TextField
+            fullWidth
+            label="Hashtags"
+            value={generatorHashtags}
+            onChange={(e) => setGeneratorHashtags(e.target.value)}
+            placeholder="#design #home #cozy"
+            multiline
+            minRows={3}
+          />
         </Box>
 
         <FormControl fullWidth>
@@ -310,16 +384,105 @@ export default function AutoPosts() {
         </FormControl>
       </Paper>
 
-      <Button
-        variant="contained"
-        size="large"
-        fullWidth
-        onClick={handleGeneratePosts}
-        disabled={!canGenerate || generating}
-        startIcon={generating ? <CircularProgress size={20} /> : undefined}
-      >
-        {generating ? "Generating Posts..." : "Generate Posts"}
-      </Button>
+      <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
+        <Button
+          variant="outlined"
+          fullWidth
+          onClick={() => setTemplateDialogOpen(true)}
+          disabled={!canGenerate || generating}
+        >
+          Save as template
+        </Button>
+        
+        <Button
+          variant="contained"
+          size="large"
+          fullWidth
+          onClick={handleGeneratePosts}
+          disabled={!canGenerate || generating}
+          startIcon={generating ? <CircularProgress size={20} /> : undefined}
+        >
+          {generating ? "Generating Posts..." : "Generate Posts"}
+        </Button>
+      </Stack>
+
+      <Typography variant="h6" sx={{ p: 2, pb: 1 }}>Saved Templates</Typography>
+      <Paper sx={{ p: 0, mb: 3 }}>
+        {templates.length === 0 ? (
+          <Box sx={{ p: 2, pt: 0 }}>
+            <Typography color="text.secondary">No templates saved.</Typography>
+          </Box>
+        ) : (
+          <List>
+            {templates.map((t, idx) => {
+              const secondary = `${t.numPosts} posts • ${t.minImages}-${t.maxImages} images/post`;
+              return (
+                <React.Fragment key={t.id}>
+                  <ListItem
+                    onClick={() => applyTemplateToForm(t)}
+                    sx={{ cursor: 'pointer',
+                      "&:hover": {
+                        backgroundColor: "#373737", // light gray highlight
+                      }, }}
+                    secondaryAction={
+                      <Tooltip title="Delete template">
+                        <IconButton edge="end" aria-label="delete" onClick={async (e) => { e.stopPropagation(); await deleteGeneratorTemplate(t.id); const refreshed = await listGeneratorTemplates(); setTemplates(refreshed); }}>
+                          <DeleteIcon />
+                        </IconButton>
+                      </Tooltip>
+                    }
+                  >
+                    <ListItemText primary={t.name} secondary={secondary} />
+                  </ListItem>
+                  {idx < templates.length - 1 && <Divider component="li" />}
+                </React.Fragment>
+              );
+            })}
+          </List>
+        )}
+      </Paper>
+
+      <Dialog open={templateDialogOpen} onClose={() => setTemplateDialogOpen(false)}>
+        <DialogTitle>Save as template</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Template name"
+            fullWidth
+            value={templateName}
+            onChange={(e) => setTemplateName(e.target.value)}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setTemplateDialogOpen(false)}>Cancel</Button>
+          <Button onClick={async () => {
+            const userIdeas = ideasInput.split(/\n|,/).map(s => s.trim()).filter(Boolean);
+            if (!templateName.trim() || !selectedProjectId || minImages > maxImages || userIdeas.length === 0 || (selectedPromptIds.length === 0 && availablePrompts.length === 0)) {
+              return;
+            }
+            const moods = generatorMoods.split(/\n|,/).map(s => s.trim()).filter(Boolean);
+            const tpl: GeneratorTemplate = {
+              id: (crypto as any).randomUUID?.() ?? Math.random().toString(36).slice(2),
+              name: templateName.trim(),
+              projectId: selectedProjectId,
+              minImages,
+              maxImages,
+              promptIds: selectedPromptIds.length > 0 ? selectedPromptIds : availablePrompts.map(p => p.id),
+              postIdeas: userIdeas,
+              moods,
+              hashtags: generatorHashtags.trim() || undefined,
+              numPosts,
+              createdAt: Date.now(),
+            };
+            await addGeneratorTemplate(tpl);
+            const refreshed = await listGeneratorTemplates();
+            setTemplates(refreshed);
+            setTemplateDialogOpen(false);
+            setTemplateName("");
+          }} variant="contained">Save</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

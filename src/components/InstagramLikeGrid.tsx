@@ -1,5 +1,5 @@
 import * as React from "react";
-import { ImageList, ImageListItem, Box, Alert, Button } from "@mui/material";
+import { ImageList, ImageListItem, Box } from "@mui/material";
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import {
     DndContext,
@@ -17,9 +17,9 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import AddPostFab from "../features/posts/AddPostFab";
 import PostDetailModal from "../features/posts/PostDetailModal";
-import { getLibraryHandle, listDraftPosts, setLibraryHandle, updateDraftPositions, deleteDraftPost, type DraftPost } from "../lib/db";
+import { listDraftPosts, updateDraftPositions, deleteDraftPost, type DraftPost } from "../lib/db";
 import { listSchedules } from "../lib/db";
-import { ensurePermissions, getImageUrl, pickLibraryDir, deleteImageFromDir } from "../lib/fs";
+import { getImageUrlFromAppDir, deleteImageFromAppDir } from "../lib/fs";
 
 type GridItem = { id: string; url: string; post: DraftPost };
 
@@ -66,27 +66,11 @@ export default function DraggableImageList() {
     }, [items, imageCache]);
 
     const loadDrafts = React.useCallback(async (forceReload = false) => {
-        if (!forceReload) {
-            // Check if we have cached data and can use it
-            const dir = await getLibraryHandle();
-            if (dir && imageCache.size > 0 && items.length > 0) {
-                // We have cached data, just return early
-                return;
-            }
+        if (!forceReload && imageCache.size > 0 && items.length > 0) {
+            return;
         }
 
-        const dir = await getLibraryHandle();
-        if (!dir) {
-            setBannerNeeded(true);
-            setItems([]);
-            return;
-        }
-        const has = await ensurePermissions(dir, "readwrite");
-        if (!has) {
-            setBannerNeeded(true);
-            setItems([]);
-            return;
-        }
+        // Tauri app-dir flow doesn't require a picked dir
         const posts = await listDraftPosts();
         
         // Create new cache for this load
@@ -104,7 +88,7 @@ export default function DraggableImageList() {
                 }
                 
                 // Load new image and cache it
-                const url = await getImageUrl(dir, img.fileName);
+                const url = await getImageUrlFromAppDir(img.fileName);
                 newCache.set(p.id, url);
                 return { id: p.id, url, post: p } as GridItem;
             })
@@ -134,16 +118,12 @@ export default function DraggableImageList() {
 
     const handlePostDelete = async (postId: string) => {
         try {
-            const dir = await getLibraryHandle();
-            if (dir) {
-                const gridItem = items.find(i => i.id === postId);
-                const post = gridItem?.post;
-                if (post) {
-                    // Only delete underlying files for standalone posts (no project linkage)
-                    if (!post.projectId) {
-                        for (const img of post.images) {
-                            try { await deleteImageFromDir(dir, img.fileName); } catch {}
-                        }
+            const gridItem = items.find(i => i.id === postId);
+            const post = gridItem?.post;
+            if (post) {
+                if (!post.projectId) {
+                    for (const img of post.images) {
+                        try { await deleteImageFromAppDir(img.fileName); } catch {}
                     }
                 }
             }
@@ -173,31 +153,7 @@ export default function DraggableImageList() {
                 collisionDetection={closestCenter}
                 onDragEnd={handleDragEnd}
             >
-                {bannerNeeded && (
-                    <Alert
-                        severity="info"
-                        sx={{ mb: 2, width: "100%", maxWidth: 930 }}
-                        action={
-                            <Button
-                                color="inherit"
-                                size="small"
-                                onClick={async () => {
-                                    try {
-                                        const dir = await pickLibraryDir();
-                                        await setLibraryHandle(dir);
-                                        await loadDrafts(true); // Force reload after choosing folder
-                                    } catch {
-                                        // ignore
-                                    }
-                                }}
-                            >
-                                Choose Folder
-                            </Button>
-                        }
-                    >
-                        Choose a local folder to store your posts.
-                    </Alert>
-                )}
+                {bannerNeeded && null}
                 {/* SortableContext makes the children reorderable in a grid */}
                 <SortableContext items={sortableIds} strategy={rectSortingStrategy}>
                     <ImageList
@@ -240,11 +196,9 @@ export default function DraggableImageList() {
                         // if main image changed, refresh its cached URL for first image only
                         (async () => {
                             try {
-                                const dir = await getLibraryHandle();
-                                if (!dir) return;
                                 const first = updated.images[0];
                                 if (!first) return;
-                                const url = await getImageUrl(dir, first.fileName);
+                                const url = await getImageUrlFromAppDir(first.fileName);
                                 setImageCache(prev => {
                                     const next = new Map(prev);
                                     next.set(updated.id, url);

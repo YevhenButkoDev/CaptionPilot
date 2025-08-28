@@ -1,9 +1,10 @@
 import * as React from "react";
 import { Box, Typography, IconButton, ImageList, ImageListItem, Alert, Button, Dialog, DialogTitle, DialogContent, DialogActions, Fab, Paper } from "@mui/material";
 import { ArrowBack, Add, Remove } from "@mui/icons-material";
-import { getProject, updateProject, type Project, getLibraryHandle } from "../lib/db";
-import { getImageUrl, saveImageToDir, ensurePermissions } from "../lib/fs";
+import { getProject, updateProject, type Project } from "../lib/db";
+import { getImageUrlFromAppDir, saveImageToAppDir } from "../lib/fs";
 import { compressImageToFile, shouldCompress } from "../lib/image";
+import {confirm} from "@tauri-apps/plugin-dialog";
 
 function renderMarkdownToHtml(src: string): string {
   let html = src.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -39,27 +40,35 @@ export default function ProjectDetailPage({ projectId, onBack }: ProjectDetailPa
       const projectData = await getProject(projectId);
       if (!projectData) { setError("Project not found"); setLoading(false); return; }
       setProject(projectData);
-      const dir = await getLibraryHandle();
-      if (dir && projectData.images.length > 0) {
-        const urls = await Promise.all(projectData.images.map(img => getImageUrl(dir, img.fileName)));
-        setImageUrls(urls);
+      if (projectData.images.length > 0) {
+        const urlsList = await Promise.all(projectData.images.map(img => getImageUrlFromAppDir(img.fileName)));
+        setImageUrls(urlsList);
       }
     } catch (error) { console.error("Failed to load project:", error); setError("Failed to load project"); }
     finally { setLoading(false); }
   };
 
   const handleRemoveImage = async (imageIndex: number) => {
-    if (!project || !window.confirm("Are you sure you want to remove this image?")) return;
-    try {
-      const updatedImages = [...project.images];
-      updatedImages.splice(imageIndex, 1);
-      const updatedProject: Project = { ...project, images: updatedImages };
-      await updateProject(updatedProject);
-      setProject(updatedProject);
-      const newUrls = [...imageUrls];
-      newUrls.splice(imageIndex, 1);
-      setImageUrls(newUrls);
-    } catch (error) { console.error("Failed to remove image:", error); }
+    if (!project) return;
+    const accepted = await confirm("Are you sure you want to remove this image?", {
+      title: "Confirm deletion",
+      okLabel: "Delete",
+      cancelLabel: "Cancel",
+    });
+    if (accepted) {
+      try {
+        const updatedImages = [...project.images];
+        updatedImages.splice(imageIndex, 1);
+        const updatedProject: Project = {...project, images: updatedImages};
+        await updateProject(updatedProject);
+        setProject(updatedProject);
+        const newUrls = [...imageUrls];
+        newUrls.splice(imageIndex, 1);
+        setImageUrls(newUrls);
+      } catch (error) {
+        console.error("Failed to remove image:", error);
+      }
+    }
   };
 
   const onDropFiles = (dropped: FileList | null) => {
@@ -72,17 +81,15 @@ export default function ProjectDetailPage({ projectId, onBack }: ProjectDetailPa
     if (newFiles.length === 0) return;
     setSaving(true); setCompressing(true);
     try {
-      const dir = await getLibraryHandle(); if (!dir) { setSaving(false); setCompressing(false); return; }
-      const ok = await ensurePermissions(dir, "readwrite"); if (!ok) { setSaving(false); setCompressing(false); return; }
       const compressedImages = await Promise.all(newFiles.map(async (file) => shouldCompress(file) ? await compressImageToFile(file) : file));
       setCompressing(false);
       const savedImages: Project["images"] = [];
-      for (const f of compressedImages) { const meta = await saveImageToDir(dir, f); savedImages.push(meta); }
+      for (const f of compressedImages) { const meta = await saveImageToAppDir(f); savedImages.push(meta); }
       if (project) {
         const updatedProject: Project = { ...project, images: [...project.images, ...savedImages] };
         await updateProject(updatedProject);
         setProject(updatedProject);
-        const newUrls = await Promise.all(savedImages.map(img => getImageUrl(dir!, img.fileName)));
+        const newUrls = await Promise.all(savedImages.map(img => getImageUrlFromAppDir(img.fileName)));
         setImageUrls(prev => [...prev, ...newUrls]);
       }
       setAddImagesOpen(false); setNewFiles([]);

@@ -8,10 +8,10 @@ import TextField from "@mui/material/TextField";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import CircularProgress from "@mui/material/CircularProgress";
-import { addProject, type Project, getLibraryHandle, setLibraryHandle, listProjects } from "../../lib/db";
-import { ensurePermissions, pickLibraryDir, saveImageToDir } from "../../lib/fs";
+import { addProject, type Project, listProjects } from "../../lib/db";
+import { saveImageToAppDir } from "../../lib/fs";
 import { compressImageToFile, shouldCompress } from "../../lib/image";
-import { Chip, Stack, FormControl, InputLabel, MenuItem, Select } from "@mui/material";
+import { FormControl, InputLabel, MenuItem, Select } from "@mui/material";
 
 type Props = { open: boolean; onClose: () => void; onSaved?: (projectId: string) => void };
 
@@ -27,11 +27,6 @@ export default function NewProjectDialog({ open, onClose, onSaved }: Props) {
   const [compressing, setCompressing] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement | null>(null);
 
-  const [hashtags, setHashtags] = React.useState<string>("");
-  const [moods, setMoods] = React.useState<string[]>([]);
-  const [moodInput, setMoodInput] = React.useState<string>("");
-  const [postIdeas, setPostIdeas] = React.useState<string[]>([]);
-  const [ideaInput, setIdeaInput] = React.useState<string>("");
   const [toneOption, setToneOption] = React.useState<string>("");
   const [toneCustom, setToneCustom] = React.useState<string>("");
 
@@ -44,11 +39,6 @@ export default function NewProjectDialog({ open, onClose, onSaved }: Props) {
       setDragOver(false);
       setSaving(false);
       setCompressing(false);
-      setMoods([]);
-      setMoodInput("");
-      setPostIdeas([]);
-      setIdeaInput("");
-      setHashtags("");
       setToneOption("");
       setToneCustom("");
     }
@@ -66,17 +56,6 @@ export default function NewProjectDialog({ open, onClose, onSaved }: Props) {
     setSaving(true);
     setCompressing(true);
     try {
-      let dir = await getLibraryHandle();
-      if (!dir) {
-        dir = await pickLibraryDir();
-        await setLibraryHandle(dir);
-      }
-      const ok = await ensurePermissions(dir!, "readwrite");
-      if (!ok) {
-        setSaving(false);
-        setCompressing(false);
-        return;
-      }
 
       // Compress images before saving
       const compressedImages = await Promise.all(
@@ -92,7 +71,7 @@ export default function NewProjectDialog({ open, onClose, onSaved }: Props) {
 
       const savedImages = [] as Project["images"];
       for (const f of compressedImages) {
-        const meta = await saveImageToDir(dir!, f);
+        const meta = await saveImageToAppDir(f);
         savedImages.push(meta);
       }
 

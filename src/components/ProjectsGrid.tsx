@@ -1,16 +1,16 @@
 import * as React from "react";
-import { ImageList, ImageListItem, Box, Alert, Button, Typography, IconButton } from "@mui/material";
+import { ImageList, ImageListItem, Box, Typography, IconButton } from "@mui/material";
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import AddProjectFab from "../features/projects/AddProjectFab";
-import { getLibraryHandle, listProjects, setLibraryHandle, type Project, deleteProject, deleteDraftPostsByProject } from "../lib/db";
-import { ensurePermissions, pickLibraryDir, getImageUrl, deleteImageFromDir } from "../lib/fs";
+import { getLibraryHandle, listProjects, type Project, deleteProject, deleteDraftPostsByProject } from "../lib/db";
+import {deleteImageFromDir, getImageUrlFromAppDir} from "../lib/fs";
 import DeleteIcon from '@mui/icons-material/Delete';
+import { confirm } from "@tauri-apps/plugin-dialog";
 
 type GridItem = { id: string; project: Project; imageUrl?: string };
 
 export default function ProjectsGrid() {
     const [items, setItems] = React.useState<GridItem[]>([]);
-    const [bannerNeeded, setBannerNeeded] = React.useState(false);
     const [imageCache, setImageCache] = React.useState<Map<string, string>>(new Map());
 
     const loadProjects = React.useCallback(async (forceReload = false) => {
@@ -18,18 +18,6 @@ export default function ProjectsGrid() {
             return;
         }
 
-        const dir = await getLibraryHandle();
-        if (!dir) {
-            setBannerNeeded(true);
-            setItems([]);
-            return;
-        }
-        const has = await ensurePermissions(dir, "readwrite");
-        if (!has) {
-            setBannerNeeded(true);
-            setItems([]);
-            return;
-        }
         const projects = await listProjects();
         
         // Create new cache for this load
@@ -49,7 +37,7 @@ export default function ProjectsGrid() {
                 
                 // Load new image and cache it
                 try {
-                    const url = await getImageUrl(dir, img.fileName);
+                    const url = await getImageUrlFromAppDir(img.fileName);
                     newCache.set(p.id, url);
                     return { id: p.id, project: p, imageUrl: url } as GridItem;
                 } catch (error) {
@@ -60,7 +48,6 @@ export default function ProjectsGrid() {
         );
         
         setImageCache(newCache);
-        setBannerNeeded(false);
         setItems(projectItems);
     }, [imageCache, items.length]);
 
@@ -75,32 +62,6 @@ export default function ProjectsGrid() {
 
     return (
         <>
-            {bannerNeeded && (
-                <Alert
-                    severity="info"
-                    sx={{ mb: 2 }}
-                    action={
-                        <Button
-                            color="inherit"
-                            size="small"
-                            onClick={async () => {
-                                try {
-                                    const dir = await pickLibraryDir();
-                                    await setLibraryHandle(dir);
-                                    await loadProjects(true);
-                                } catch {
-                                    // ignore
-                                }
-                            }}
-                        >
-                            Choose Folder
-                        </Button>
-                    }
-                >
-                    Choose a local folder to store your projects.
-                </Alert>
-            )}
-            
             <ImageList
                 cols={3}
                 rowHeight={200}
@@ -118,7 +79,12 @@ export default function ProjectsGrid() {
                         imageUrl={item.imageUrl}
                         onClick={() => handleProjectClick(item.project)}
                         onDelete={async () => {
-                            if (window.confirm("Delete this project and all its generated posts?")) {
+                            const accepted = await confirm("Delete this project and all its generated posts?", {
+                                title: "Confirm deletion",
+                                okLabel: "Delete",
+                                cancelLabel: "Cancel",
+                            });
+                            if (accepted) {
                                 try {
                                     const dir = await getLibraryHandle();
                                     if (dir) {

@@ -22,71 +22,57 @@ export async function compressImage(
   options: CompressionOptions = {}
 ): Promise<Blob> {
   const opts = { ...DEFAULT_OPTIONS, ...options };
-  
-  return new Promise((resolve, reject) => {
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    if (!ctx) {
-      reject(new Error('Canvas context not available'));
-      return;
-    }
 
-    const img = new Image();
-    img.onload = () => {
-      try {
-        // Calculate new dimensions maintaining aspect ratio
-        const { width, height } = calculateDimensions(
-          img.width,
-          img.height,
-          opts.maxWidth!,
-          opts.maxHeight!
-        );
+  // Decode image using createImageBitmap for robustness (works in Tauri WebView)
+  const arrayBuf = await file.arrayBuffer();
+  const bitmap = await createImageBitmap(new Blob([arrayBuf]));
 
-        // Set canvas size
-        canvas.width = width;
-        canvas.height = height;
+  // Compute target dimensions
+  const { width, height } = calculateDimensions(
+    bitmap.width,
+    bitmap.height,
+    opts.maxWidth!,
+    opts.maxHeight!
+  );
 
-        // Draw and compress
-        ctx.drawImage(img, 0, 0, width, height);
+  // Prefer OffscreenCanvas when available; fallback to HTMLCanvasElement
+  let blobProducer: (quality: number) => Promise<Blob>;
 
-        // Try different quality levels to meet file size requirement
-        let currentQuality = opts.quality!;
-        let attempts = 0;
-        const maxAttempts = 10;
-
-        const tryCompress = () => {
-          canvas.toBlob(
-            (blob) => {
-              if (!blob) {
-                reject(new Error('Failed to create blob'));
-                return;
-              }
-
-              // Check if file size is acceptable
-              if (blob.size <= opts.maxFileSize! || attempts >= maxAttempts) {
-                resolve(blob);
-                return;
-              }
-
-              // Reduce quality and try again
-              attempts++;
-              currentQuality = Math.max(0.1, currentQuality * 0.9);
-              tryCompress();
-            },
-            opts.format,
-            currentQuality
-          );
-        };
-
-        tryCompress();
-      } catch (error) {
-        reject(error);
-      }
+  if (typeof (globalThis as any).OffscreenCanvas !== 'undefined') {
+    const off = new (globalThis as any).OffscreenCanvas(width, height);
+    const ctx = off.getContext('2d');
+    if (!ctx) throw new Error('Canvas context not available');
+    ctx.drawImage(bitmap, 0, 0, width, height);
+    blobProducer = async (quality: number) => {
+      // convertToBlob is supported on OffscreenCanvas
+      return await (off as any).convertToBlob({ type: opts.format, quality });
     };
+  } else {
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Canvas context not available');
+    ctx.drawImage(bitmap, 0, 0, width, height);
+    blobProducer = (quality: number) => new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob((blob) => {
+        if (!blob) return reject(new Error('Failed to create blob'));
+        resolve(blob);
+      }, opts.format, quality);
+    });
+  }
 
-    img.onerror = () => reject(new Error('Failed to load image'));
-    img.src = URL.createObjectURL(file);
-  });
+  // Iteratively lower quality to meet file size target
+  let currentQuality = opts.quality!;
+  let attempts = 0;
+  const maxAttempts = 10;
+  let out = await blobProducer(currentQuality);
+  while (out.size > opts.maxFileSize! && attempts < maxAttempts) {
+    attempts++;
+    currentQuality = Math.max(0.1, currentQuality * 0.9);
+    out = await blobProducer(currentQuality);
+  }
+  return out;
 }
 
 function calculateDimensions(

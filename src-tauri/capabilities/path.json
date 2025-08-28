@@ -1,0 +1,8 @@
+{
+  "identifier": "path-access",
+  "description": "Allow resolving directories",
+  "permissions": [
+    "core:path:default",
+    "core:path:allow-resolve-directory"
+  ]
+}

@@ -3,7 +3,7 @@ import PinterestLogo from "../assets/pinterest-logo.svg";
 import SettingsIcon from '@mui/icons-material/Settings';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import Logo from './Logo';
-import { Box, Typography } from '@mui/material';
+import { Box } from '@mui/material';
 
 export type SectionKey = "settings" | "projects" | "instagram" | "pinterest";
 

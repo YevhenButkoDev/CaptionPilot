@@ -1,8 +1,8 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "inst-automation",
+  "productName": "CaptionPilot",
   "version": "0.1.0",
-  "identifier": "com.tauri.dev",
+  "identifier": "CaptionPilot",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173",
@@ -13,14 +13,19 @@
     "windows": [
       {
         "title": "CEO Automation",
-        "width": 800,
-        "height": 600,
+        "width": 1400.0,
+        "height": 1200.0,
         "resizable": true,
         "fullscreen": false
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src 'self' ipc: http://ipc.localhost; img-src 'self' asset: http://asset.localhost data:; style-src 'self' 'unsafe-inline'; font-src 'self' data:",
+      "capabilities": ["path-access", "default", "fs-storage", "dialog"],
+      "assetProtocol": {
+        "enable": true,
+        "scope": ["**"]
+      }
     }
   },
   "bundle": {

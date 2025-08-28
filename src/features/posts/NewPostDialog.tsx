@@ -8,8 +8,8 @@ import TextField from "@mui/material/TextField";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import CircularProgress from "@mui/material/CircularProgress";
-import { addDraftPost, type DraftPost, getLibraryHandle, setLibraryHandle } from "../../lib/db";
-import { ensurePermissions, pickLibraryDir, saveImageToDir } from "../../lib/fs";
+import { addDraftPost, type DraftPost } from "../../lib/db";
+import { saveImageToAppDir } from "../../lib/fs";
 import { compressImageToFile, shouldCompress } from "../../lib/image";
 
 type Props = { open: boolean; onClose: () => void; onSaved?: (postId: string) => void };
@@ -42,17 +42,7 @@ export default function NewPostDialog({ open, onClose, onSaved }: Props) {
     setSaving(true);
     setCompressing(true);
     try {
-      let dir = await getLibraryHandle();
-      if (!dir) {
-        dir = await pickLibraryDir();
-        await setLibraryHandle(dir);
-      }
-      const ok = await ensurePermissions(dir!, "readwrite");
-      if (!ok) {
-        setSaving(false);
-        setCompressing(false);
-        return;
-      }
+      // Tauri app-dir: no directory picker/permissions required
 
       // Compress images before saving
       const compressedImages = await Promise.all(
@@ -68,7 +58,7 @@ export default function NewPostDialog({ open, onClose, onSaved }: Props) {
 
       const savedImages = [] as DraftPost["images"];
       for (const f of compressedImages) {
-        const meta = await saveImageToDir(dir!, f);
+        const meta = await saveImageToAppDir(f);
         savedImages.push(meta);
       }
 

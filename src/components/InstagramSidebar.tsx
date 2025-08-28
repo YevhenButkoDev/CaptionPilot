@@ -1,6 +1,3 @@
-import * as React from "react";
-import { Box } from "@mui/material";
-
 export type InstagramSectionKey = "feed" | "generator" | "scheduler";
 
 interface InstagramSidebarProps {

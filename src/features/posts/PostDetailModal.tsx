@@ -5,9 +5,10 @@ import IconButton from "@mui/material/IconButton";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import { ChevronLeft, ChevronRight, Close, Delete, Save as SaveIcon } from "@mui/icons-material";
-import {type DraftPost, getLibraryHandle, updateDraftPost} from "../../lib/db";
-import { getImageUrl } from "../../lib/fs";
+import {type DraftPost, updateDraftPost} from "../../lib/db";
+import { getImageUrlFromAppDir } from "../../lib/fs";
 import { MenuItem, Select, FormControl, InputLabel, Button, TextField } from "@mui/material";
+import {confirm} from "@tauri-apps/plugin-dialog";
 
 interface PostDetailModalProps {
   post: DraftPost | null;
@@ -41,11 +42,8 @@ export default function PostDetailModal({ post, open, onClose, onDelete, onPostU
     
     setLoading(true);
     try {
-      const dir = await getLibraryHandle();
-      if (!dir) return;
-      
       const urls = await Promise.all(
-        post.images.map(img => getImageUrl(dir, img.fileName))
+        post.images.map(img => getImageUrlFromAppDir(img.fileName))
       );
       setImageUrls(urls);
     } catch (error) {
@@ -90,8 +88,13 @@ export default function PostDetailModal({ post, open, onClose, onDelete, onPostU
     }
   };
 
-  const handleDelete = () => {
-    if (post && window.confirm("Are you sure you want to delete this post?")) {
+  const handleDelete = async () => {
+    const accepted = await confirm("Are you sure you want to delete this post?", {
+      title: "Confirm deletion",
+      okLabel: "Delete",
+      cancelLabel: "Cancel",
+    });
+    if (post && accepted) {
       onDelete(post.id);
       onClose();
     }
@@ -225,7 +228,7 @@ export default function PostDetailModal({ post, open, onClose, onDelete, onPostU
             <FormControl fullWidth sx={{ mb: 1, flexShrink: 0 }}>
               <InputLabel id="caption-select-label">AI Captions</InputLabel>
               <Select labelId="caption-select-label" value={captionIndex} label="AI Captions" onChange={(e) => handleCaptionChange(Number(e.target.value))}>
-                {captions.map((c, idx) => (<MenuItem key={idx} value={idx}>{`Caption ${idx + 1}`}</MenuItem>))}
+                {captions.map((_, idx) => (<MenuItem key={idx} value={idx}>{`Caption ${idx + 1}`}</MenuItem>))}
               </Select>
             </FormControl>
           )}

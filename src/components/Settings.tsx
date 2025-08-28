@@ -28,9 +28,8 @@ interface SettingsData {
 function validatePrompt(content: string): string | null {
   const hasTone = content.includes("{ Tone }");
   const hasMood = content.includes("{ Mood }");
-  const hasHashtags = content.includes("{ Hashtags }");
   const hasDesc = content.includes("{ Project Description }");
-  if (!hasTone || !hasMood || !hasHashtags || !hasDesc) {
+  if (!hasTone || !hasMood || !hasDesc) {
     return "Prompt must include { Tone }, { Mood }, { Hashtags }, and { Project Description } placeholders.";
   }
   return null;

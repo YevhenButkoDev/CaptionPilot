@@ -215,6 +215,9 @@ export default function AutoPosts() {
     hashtags: string
   ): Promise<DraftPost[]> => {
     const { images, description, tone } = project;
+
+    console.log('description', description);
+
     const posts: DraftPost[] = [];
 
     const totalImages = images.length;
@@ -247,11 +250,21 @@ export default function AutoPosts() {
       const promptSource = promptsToUse[promptIdx % promptsToUse.length];
       promptIdx++;
 
+      const resultMood = `moods - ${chosenMood}, post ideas - ${chosenIdea}`.trim();
+
       const filledPrompt = promptSource
-        .replace("{ Tone }", tone || "")
-        .replace("{ Hashtags }", hashtags || "")
-        .replace("{ Mood }", `${chosenMood} ${chosenIdea}`.trim())
-        .replace("{ Project Description }", description || "");
+        .replace(/[\u00A0\u2007\u202F\u2009\u200A\u200B\uFEFF]/g, ' ')
+          .replace(/\{\s*Tone\s*\}/g, tone ?? '')
+          .replace(/\{\s*Project\s*Description\s*\}/g, description ?? '')
+          .replace(/\{\s*Mood\s*\}/g, resultMood ?? '');
+
+      console.log(filledPrompt.includes("{ Mood }"))
+      console.log('result prompt', filledPrompt)
+      console.log('result mood', resultMood)
+
+      if (filledPrompt.includes("{ Mood }")) {
+        throw Error("Mood is not replaced")
+      }
 
       const aiCaptions = await generateCaptionWithOpenAI(filledPrompt);
       const cleanedCaptions = (aiCaptions || [filledPrompt]).map(c => {

@@ -1,5 +1,5 @@
-// File System Access helpers
-// Note: Works only in secure contexts (https) and supported browsers
+// File System helpers
+// Browser FSA fallback + Tauri app-dir storage when available
 
 export async function pickLibraryDir(): Promise<FileSystemDirectoryHandle> {
   // @ts-expect-error: showDirectoryPicker is not in lib.dom yet in all TS versions
@@ -64,11 +64,142 @@ export async function deleteImageFromDir(
 ): Promise<void> {
   // removeEntry throws if missing; we can ignore errors silently
   try {
-    // @ts-expect-error: removeEntry typing varies
     await dir.removeEntry(fileName);
   } catch {
     // ignore missing or permission errors
   }
 }
 
+// -------- Tauri app-dir helpers --------
+export async function tauriImports(): Promise<{
+  fs: any | null;
+  path: any | null;
+  tauri: any | null;
+}> {
+  const isTauriVar = await isTauri();
 
+  if (!isTauriVar) {
+    // running as a web app — don't try to load Tauri modules
+    return { fs: null, path: null, tauri: null };
+  }
+
+  // Tauri desktop: load plugins/APIs dynamically
+  const fs =
+      (await import("@tauri-apps/plugin-fs").catch(() => null));
+
+  const path =
+      (await import("@tauri-apps/api/path").catch(() => null));
+
+  // convertFileSrc lives in v2 @tauri-apps/api/core; fall back to v1 compat if needed
+  const tauriCore = await import("@tauri-apps/api/core").catch(() => null as any);
+
+  return {
+    fs,
+    path,
+    tauri: tauriCore
+  };
+}
+
+export function isTauriSync(): boolean {
+  const w = typeof window !== "undefined" ? (window as any) : undefined;
+  return !!(
+      w &&
+      (w.__TAURI_INTERNALS__ || // v2
+          w.__TAURI_IPC__      || // v1
+          w.__TAURI__)            // very old / custom
+  );
+}
+
+export async function isTauri(): Promise<boolean> {
+  if (isTauriSync()) return true;
+  try {
+    // If this import succeeds at runtime, we’re inside Tauri
+    await import("@tauri-apps/api/core");
+    return true;
+  } catch {
+    return false; // web browser
+  }
+}
+
+async function ensureImageDir(): Promise<string> {
+  const { fs } = await tauriImports();
+  if (!fs) throw new Error('Tauri FS not available');
+
+  const base = fs.BaseDirectory.AppData;
+  const appLocalDataExists = await fs.exists('', { baseDir: base, });
+
+  if (!appLocalDataExists) {
+    await fs.mkdir(
+        "",
+        {
+          baseDir: base,
+          recursive: true
+        }
+    );
+  }
+
+  const imagesDirExists = await fs.exists('images', {
+    baseDir: fs.BaseDirectory.AppData,
+  });
+
+  if (!imagesDirExists) {
+    await fs.mkdir(
+        "images",
+        {
+          baseDir: base,
+          recursive: true
+        }
+    );
+  }
+  return "images";
+}
+
+export async function saveImageToAppDir(file: File): Promise<{ fileName: string; mimeType: string; size: number }> {
+  const isTauriVar = await isTauri();
+  if (!isTauriVar) {
+    throw new Error('Tauri runtime not detected');
+  }
+  const { fs } = await tauriImports();
+  const dir = await ensureImageDir();
+  const fileName = `${uuid()}${extFromName(file.name)}`;
+  const full = `${dir}/${fileName}`;
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  await fs.writeFile(full, bytes, { baseDir: fs.BaseDirectory.AppData });
+  return { fileName, mimeType: file.type || 'application/octet-stream', size: file.size };
+}
+
+export async function getImageUrlFromAppDir(fileName: string): Promise<string> {
+  if (!(await isTauri())) {
+    throw new Error("Tauri runtime not detected");
+  }
+
+  const { tauri, path } = await tauriImports(); // v2: core has convertFileSrc
+  if (!tauri?.convertFileSrc || !path?.appDataDir || !path?.join) {
+    throw new Error("Tauri path/core APIs not available");
+  }
+
+  // ensure subfolder exists (returns "images")
+  const relDir = await ensureImageDir();
+
+  // build absolute path: <AppData>/<your-app>/images/<fileName>
+  const base = await path.appDataDir();
+  const absPath = await path.join(base, relDir, fileName);
+
+  // make it WebView-safe
+  return tauri.convertFileSrc(absPath);
+}
+
+export async function deleteImageFromAppDir(fileName: string): Promise<void> {
+  const isTauriVar = await isTauri();
+  if (!isTauriVar) {
+    throw new Error('Tauri runtime not detected');
+  }
+  const { fs } = await tauriImports();
+  const dir = await ensureImageDir();
+  const full = `${dir}/${fileName}`;
+  try {
+    await fs.removeFile(full);
+  } catch {
+    // ignore
+  }
+}

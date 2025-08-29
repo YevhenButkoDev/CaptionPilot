@@ -5,7 +5,7 @@ import DashboardIcon from '@mui/icons-material/Dashboard';
 import Logo from './Logo';
 import { Box } from '@mui/material';
 
-export type SectionKey = "settings" | "projects" | "instagram" | "pinterest";
+export type SectionKey = "dashboard" | "settings" | "projects" | "instagram" | "pinterest";
 
 interface SidebarProps {
   selected: SectionKey;
@@ -29,9 +29,24 @@ export default function Sidebar({ selected, onSelect }: SidebarProps) {
       }}
     >
       <nav style={{ display: "grid", gap: 16, justifyItems: "center" }}>
-        {/* Logo at the top */}
+        {/* Logo at the top - clickable for dashboard */}
         <Box sx={{ mb: 3, display: "flex", flexDirection: "column", alignItems: "center" }}>
-          <Logo />
+          <button
+            onClick={() => onSelect("dashboard")}
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              background: "transparent",
+              border: "none",
+              cursor: "pointer",
+              padding: "8px 4px",
+              borderRadius: 8,
+              width: "100%",
+            }}
+          >
+            <Logo />
+          </button>
         </Box>
         
         <SidebarButton
@@ -82,18 +97,33 @@ function SidebarButton({
         flexDirection: "column",
         alignItems: "center",
         gap: 4,
-        background: "transparent",
+        background: active ? "rgba(255, 255, 255, 0.1)" : "transparent",
         color: active ? "#fff" : "#ddd",
         padding: "8px 4px",
         borderRadius: 8,
         width: "100%",
         fontSize: "10px",
-        border: "none",
+        border: active ? "1px solid rgba(255, 255, 255, 0.3)" : "1px solid transparent",
         cursor: "pointer",
         transition: "all 0.2s ease",
         textAlign: "center",
+        position: "relative",
       }}
     >
+      {active && (
+        <div
+          style={{
+            position: "absolute",
+            left: -8,
+            top: "50%",
+            transform: "translateY(-50%)",
+            width: 3,
+            height: 24,
+            background: "#fff",
+            borderRadius: "0 2px 2px 0",
+          }}
+        />
+      )}
       <span style={{ fontSize: "24px" }}>{icon}</span>
       <span style={{ 
         fontWeight: active ? "600" : "400",

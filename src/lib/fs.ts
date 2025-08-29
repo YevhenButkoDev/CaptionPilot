@@ -203,3 +203,68 @@ export async function deleteImageFromAppDir(fileName: string): Promise<void> {
     // ignore
   }
 }
+
+export async function listProjectAssets(): Promise<{ fileName: string; mimeType: string; size: number }[]> {
+  const isTauriVar = await isTauri();
+  if (!isTauriVar) {
+    throw new Error('Tauri runtime not detected');
+  }
+  
+  try {
+    const { fs } = await tauriImports();
+    const dir = await ensureImageDir();
+    
+    // List all files in the images directory
+    const files = await fs.readDir(dir, { baseDir: fs.BaseDirectory.AppData });
+    
+    // Filter for image files and get their metadata
+    const imageFiles = files.filter(file => 
+      file.name && !file.children && // Ensure it's a file, not a directory
+      (file.name.endsWith('.jpg') || 
+       file.name.endsWith('.jpeg') || 
+       file.name.endsWith('.png') || 
+       file.name.endsWith('.gif') || 
+       file.name.endsWith('.webp'))
+    );
+    
+    // Get file info for each image
+    const assets = await Promise.all(
+      imageFiles.map(async (file) => {
+        try {
+          const fullPath = `${dir}/${file.name}`;
+          const stats = await fs.stat(fullPath, { baseDir: fs.BaseDirectory.AppData });
+          return {
+            fileName: file.name,
+            mimeType: getMimeTypeFromExtension(file.name),
+            size: stats.size || 0
+          };
+        } catch {
+          // Skip files we can't read
+          return null;
+        }
+      })
+    );
+    
+    return assets.filter(Boolean) as { fileName: string; mimeType: string; size: number }[];
+  } catch (error) {
+    console.error('Error listing project assets:', error);
+    return [];
+  }
+}
+
+function getMimeTypeFromExtension(fileName: string): string {
+  const ext = fileName.toLowerCase().split('.').pop();
+  switch (ext) {
+    case 'jpg':
+    case 'jpeg':
+      return 'image/jpeg';
+    case 'png':
+      return 'image/png';
+    case 'gif':
+      return 'image/gif';
+    case 'webp':
+      return 'image/webp';
+    default:
+      return 'application/octet-stream';
+  }
+}

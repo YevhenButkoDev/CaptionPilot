@@ -73,10 +73,13 @@ export default function DraggableImageList() {
         // Tauri app-dir flow doesn't require a picked dir
         const posts = await listDraftPosts();
         
+        // Filter to only show Instagram posts (or posts without platform field for backward compatibility)
+        const instagramPosts = posts.filter(p => !p.platform || p.platform === 'instagram');
+        
         // Create new cache for this load
         const newCache = new Map<string, string>();
         const firstImages = await Promise.all(
-            posts.map(async p => {
+            instagramPosts.map(async p => {
                 const img = p.images[0];
                 if (!img) return null;
                 

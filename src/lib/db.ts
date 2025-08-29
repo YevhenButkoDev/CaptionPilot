@@ -11,6 +11,18 @@ export type DraftPost = {
   projectId?: string;
   position?: number; // lower comes first; fallback to createdAt desc if missing
   status?: 'new' | 'published' | 'scheduled';
+  platform?: 'instagram' | 'pinterest'; // default to instagram for backward compatibility
+};
+
+export type PinterestPost = {
+  id: string;
+  createdAt: number;
+  description: string; // Pinterest pin description
+  images: { fileName: string; mimeType: string; size: number }[];
+  projectId?: string;
+  websiteUrl?: string; // Pinterest-specific website URL
+  position?: number; // lower comes first; fallback to createdAt desc if missing
+  status?: 'new' | 'published' | 'scheduled';
 };
 
 export type Project = {
@@ -45,7 +57,7 @@ export type GeneratorTemplate = {
   projectId: string; // source project for images
   minImages: number;
   maxImages: number;
-  promptIds: string[]; // prompt template ids
+  prompt: string; // the actual prompt text
   postIdeas: string[]; // user-specified ideas
   moods?: string[];
   hashtags?: string;
@@ -54,9 +66,10 @@ export type GeneratorTemplate = {
 };
 
 const DB_NAME = "inst-automation";
-const DB_VERSION = 5; // Increment version for new stores
+const DB_VERSION = 7; // Increment version for new stores
 const STORE_KV = "kv";
 const STORE_POSTS = "draftPosts";
+const STORE_PINTEREST_POSTS = "pinterestPosts";
 const STORE_PROJECTS = "projects";
 const STORE_PROMPTS = "prompts";
 const STORE_SCHEDULES = "schedules";
@@ -88,6 +101,10 @@ function openDb(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains(STORE_GENERATOR_TEMPLATES)) {
         const store = db.createObjectStore(STORE_GENERATOR_TEMPLATES, { keyPath: "id" });
+        store.createIndex("createdAt", "createdAt", { unique: false });
+      }
+      if (!db.objectStoreNames.contains(STORE_PINTEREST_POSTS)) {
+        const store = db.createObjectStore(STORE_PINTEREST_POSTS, { keyPath: "id" });
         store.createIndex("createdAt", "createdAt", { unique: false });
       }
     };
@@ -129,11 +146,17 @@ export async function setLibraryHandle(handle: FileSystemDirectoryHandle): Promi
 }
 
 export async function addDraftPost(post: DraftPost): Promise<void> {
+  // Ensure platform is set for backward compatibility
+  const postWithPlatform = {
+    ...post,
+    platform: post.platform || 'instagram'
+  };
+  
   const db = await openDb();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_POSTS, "readwrite");
     const store = tx.objectStore(STORE_POSTS);
-    const req = store.add(post);
+    const req = store.add(postWithPlatform);
     req.onsuccess = () => resolve();
     req.onerror = () => reject(req.error);
   });
@@ -299,6 +322,107 @@ export async function deleteGeneratorTemplate(id: string): Promise<void> {
   });
 }
 
+// Pinterest Posts CRUD
+export async function addPinterestPost(post: PinterestPost): Promise<void> {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_PINTEREST_POSTS, 'readwrite');
+    const store = tx.objectStore(STORE_PINTEREST_POSTS);
+    const req = store.add(post);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function listPinterestPosts(): Promise<PinterestPost[]> {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_PINTEREST_POSTS, 'readonly');
+    const store = tx.objectStore(STORE_PINTEREST_POSTS);
+    const request = store.getAll();
+    request.onsuccess = () => {
+      const posts = (request.result as PinterestPost[]) || [];
+      posts.sort((a, b) => {
+        const ap = typeof a.position === 'number' ? a.position : undefined;
+        const bp = typeof b.position === 'number' ? b.position : undefined;
+        if (ap != null && bp != null) return ap - bp;
+        if (ap != null) return -1;
+        if (bp != null) return 1;
+        return b.createdAt - a.createdAt; // newest first fallback
+      });
+      resolve(posts);
+    };
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function getPinterestPost(id: string): Promise<PinterestPost | null> {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_PINTEREST_POSTS, 'readonly');
+    const store = tx.objectStore(STORE_PINTEREST_POSTS);
+    const req = store.get(id);
+    req.onsuccess = () => resolve((req.result as PinterestPost) ?? null);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function updatePinterestPost(post: PinterestPost): Promise<void> {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_PINTEREST_POSTS, 'readwrite');
+    const store = tx.objectStore(STORE_PINTEREST_POSTS);
+    const req = store.put(post);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function updatePinterestPostPositions(orderedIds: string[]): Promise<void> {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_PINTEREST_POSTS, 'readwrite');
+    const store = tx.objectStore(STORE_PINTEREST_POSTS);
+    orderedIds.forEach((id, index) => {
+      const getReq = store.get(id);
+      getReq.onsuccess = () => {
+        const rec = getReq.result as PinterestPost | undefined;
+        if (!rec) return; // skip missing
+        const updated: PinterestPost = { ...rec, position: index };
+        store.put(updated);
+      };
+    });
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error);
+  });
+}
+
+export async function deletePinterestPost(id: string): Promise<void> {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_PINTEREST_POSTS, 'readwrite');
+    const store = tx.objectStore(STORE_PINTEREST_POSTS);
+    const req = store.delete(id);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function deletePinterestPostsByProject(projectId: string): Promise<void> {
+  const posts = await listPinterestPosts();
+  const toDelete = posts.filter(p => p.projectId === projectId).map(p => p.id);
+  const db = await openDb();
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(STORE_PINTEREST_POSTS, 'readwrite');
+    const store = tx.objectStore(STORE_PINTEREST_POSTS);
+    toDelete.forEach(id => store.delete(id));
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error);
+  });
+}
+
 export async function addSchedule(schedule: PostSchedule): Promise<void> {
   const db = await openDb();
   return new Promise((resolve, reject) => {
@@ -395,6 +519,33 @@ export async function getProject(id: string): Promise<Project | null> {
 }
 
 export async function deleteProject(id: string): Promise<void> {
+  // First, delete all related data (cascade delete)
+  try {
+    // Delete Instagram posts from this project
+    await deleteDraftPostsByProject(id);
+    
+    // Delete Pinterest posts from this project
+    await deletePinterestPostsByProject(id);
+    
+    // Delete schedules from this project
+    const schedules = await listSchedules();
+    const projectSchedules = schedules.filter(s => s.projectId === id);
+    for (const schedule of projectSchedules) {
+      await deleteSchedule(schedule.id);
+    }
+    
+    // Delete generator templates from this project
+    const templates = await listGeneratorTemplates();
+    const projectTemplates = templates.filter(t => t.projectId === id);
+    for (const template of projectTemplates) {
+      await deleteGeneratorTemplate(template.id);
+    }
+  } catch (error) {
+    console.error("Failed to delete related data for project:", id, error);
+    // Continue with project deletion even if cascade fails
+  }
+
+  // Finally, delete the project itself
   const db = await openDb();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_PROJECTS, 'readwrite');

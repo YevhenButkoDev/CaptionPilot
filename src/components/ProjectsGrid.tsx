@@ -2,7 +2,7 @@ import * as React from "react";
 import { ImageList, ImageListItem, Box, Typography, IconButton } from "@mui/material";
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import AddProjectFab from "../features/projects/AddProjectFab";
-import { getLibraryHandle, listProjects, type Project, deleteProject, deleteDraftPostsByProject } from "../lib/db";
+import { getLibraryHandle, listProjects, type Project, deleteProject } from "../lib/db";
 import {deleteImageFromDir, getImageUrlFromAppDir} from "../lib/fs";
 import DeleteIcon from '@mui/icons-material/Delete';
 import { confirm } from "@tauri-apps/plugin-dialog";
@@ -92,7 +92,6 @@ export default function ProjectsGrid() {
                                             try { await deleteImageFromDir(dir, img.fileName); } catch {}
                                         }
                                     }
-                                    await deleteDraftPostsByProject(item.project.id);
                                     await deleteProject(item.project.id);
                                     setItems(prev => prev.filter(x => x.id !== item.id));
                                 } catch (e) {

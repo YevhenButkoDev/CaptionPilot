@@ -8,15 +8,10 @@ import {
   Alert,
   Snackbar,
   IconButton,
-  InputAdornment,
-  Divider,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemSecondaryAction
+  InputAdornment
 } from "@mui/material";
-import { Visibility, VisibilityOff, Save, Refresh, Delete, Add } from "@mui/icons-material";
-import { listPrompts, addPrompt, deletePrompt, type PromptTemplate } from "../lib/db";
+import { Visibility, VisibilityOff, Save, Refresh } from "@mui/icons-material";
+
 
 interface SettingsData {
   openaiSecretKey: string;
@@ -25,15 +20,7 @@ interface SettingsData {
   cloudinaryApiKey: string;
 }
 
-function validatePrompt(content: string): string | null {
-  const hasTone = content.includes("{ Tone }");
-  const hasMood = content.includes("{ Mood }");
-  const hasDesc = content.includes("{ Project Description }");
-  if (!hasTone || !hasMood || !hasDesc) {
-    return "Prompt must include { Tone }, { Mood }, { Hashtags }, and { Project Description } placeholders.";
-  }
-  return null;
-}
+
 
 export default function Settings() {
   const [settings, setSettings] = React.useState<SettingsData>({
@@ -56,23 +43,13 @@ export default function Settings() {
   const [saved, setSaved] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
-  const [prompts, setPrompts] = React.useState<PromptTemplate[]>([]);
-  const [newPromptName, setNewPromptName] = React.useState("");
-  const [newPromptContent, setNewPromptContent] = React.useState("");
+
 
   React.useEffect(() => {
     loadSettings();
-    loadPrompts();
   }, []);
 
-  const loadPrompts = async () => {
-    try {
-      const list = await listPrompts();
-      setPrompts(list);
-    } catch (e) {
-      console.error(e);
-    }
-  };
+
 
   const loadSettings = () => {
     try {
@@ -125,44 +102,7 @@ export default function Settings() {
     setError(null);
   };
 
-  const handleAddPrompt = async () => {
-    const name = newPromptName.trim() || `Prompt ${prompts.length + 1}`;
-    const content = newPromptContent.trim();
-    if (!content) {
-      setError("Prompt content cannot be empty");
-      return;
-    }
-    const valErr = validatePrompt(content);
-    if (valErr) {
-      setError(valErr);
-      return;
-    }
-    const prompt: PromptTemplate = {
-      id: (crypto as any).randomUUID?.() ?? Math.random().toString(36).slice(2),
-      name,
-      content,
-      createdAt: Date.now(),
-    };
-    try {
-      await addPrompt(prompt);
-      setNewPromptName("");
-      setNewPromptContent("");
-      await loadPrompts();
-    } catch (e) {
-      console.error(e);
-      setError("Failed to add prompt");
-    }
-  };
 
-  const handleDeletePrompt = async (id: string) => {
-    try {
-      await deletePrompt(id);
-      await loadPrompts();
-    } catch (e) {
-      console.error(e);
-      setError("Failed to delete prompt");
-    }
-  };
 
   const handleCloseSnackbar = () => {
     setSaved(false);
@@ -170,7 +110,7 @@ export default function Settings() {
   };
 
   return (
-    <Box sx={{ maxWidth: 1000, mx: "auto", p: 3 }}>
+    <Box sx={{ width: 1000, mx: "auto", p: 3 }}>
       <Typography variant="h4" sx={{ mb: 3, fontWeight: "bold" }}>
         Settings
       </Typography>
@@ -194,30 +134,7 @@ export default function Settings() {
         </Box>
       </Paper>
 
-      <Paper sx={{ p: 4 }}>
-        <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>Prompt Management</Typography>
-        <Box sx={{ display: 'grid', gap: 2, mb: 2 }}>
-          <TextField label="Prompt Name" value={newPromptName} onChange={(e) => setNewPromptName(e.target.value)} />
-          <TextField label="Prompt Content" value={newPromptContent} onChange={(e) => setNewPromptContent(e.target.value)} fullWidth multiline minRows={10} placeholder="Use placeholders: { Tone }, { Mood }, { Hashtags }, { Project Description }" />
-          <Button variant="contained" startIcon={<Add />} onClick={handleAddPrompt}>Add Prompt</Button>
-        </Box>
-        <Divider sx={{ my: 2 }} />
-        <Typography variant="subtitle1" sx={{ mb: 1 }}>Saved Prompts</Typography>
-        {prompts.length === 0 ? (
-          <Alert severity="info">No prompts saved yet.</Alert>
-        ) : (
-          <List>
-            {prompts.map(p => (
-              <ListItem key={p.id} alignItems="flex-start">
-                <ListItemText primary={p.name} secondary={<pre style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{p.content}</pre>} />
-                <ListItemSecondaryAction>
-                  <IconButton edge="end" onClick={() => handleDeletePrompt(p.id)} aria-label="delete"><Delete /></IconButton>
-                </ListItemSecondaryAction>
-              </ListItem>
-            ))}
-          </List>
-        )}
-      </Paper>
+
 
       <Snackbar open={saved} autoHideDuration={3000} onClose={handleCloseSnackbar} anchorOrigin={{ vertical: "bottom", horizontal: "center" }}>
         <Alert onClose={handleCloseSnackbar} severity="success" sx={{ width: "100%" }}>

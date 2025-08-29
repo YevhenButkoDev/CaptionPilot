@@ -17,13 +17,16 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions
+  DialogActions,
+  List,
+  ListItem,
+  ListItemText,
+  Divider,
+  Tooltip
 } from "@mui/material";
-import { List, ListItem, ListItemText, Divider, Tooltip } from "@mui/material";
 import DeleteIcon from '@mui/icons-material/Delete';
 import { listProjects, type Project } from "../lib/db";
 import { addDraftPost, type DraftPost } from "../lib/db";
-import { listPrompts, type PromptTemplate } from "../lib/db";
 import { addGeneratorTemplate, listGeneratorTemplates, deleteGeneratorTemplate, type GeneratorTemplate } from "../lib/db";
 
 async function generateCaptionWithOpenAI(prompt: string): Promise<string[] | null> {
@@ -115,8 +118,6 @@ export default function AutoPosts() {
   const [generating, setGenerating] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [success, setSuccess] = React.useState<string | null>(null);
-  const [availablePrompts, setAvailablePrompts] = React.useState<PromptTemplate[]>([]);
-  const [selectedPromptIds, setSelectedPromptIds] = React.useState<string[]>([]);
   const [numPosts, setNumPosts] = React.useState<number>(1);
   const [ideasInput, setIdeasInput] = React.useState<string>("");
   const [templates, setTemplates] = React.useState<GeneratorTemplate[]>([]);
@@ -124,16 +125,17 @@ export default function AutoPosts() {
   const [templateName, setTemplateName] = React.useState("");
   const [generatorMoods, setGeneratorMoods] = React.useState<string>("");
   const [generatorHashtags, setGeneratorHashtags] = React.useState<string>("");
+  const [promptInput, setPromptInput] = React.useState<string>("");
 
   const applyTemplateToForm = React.useCallback((tpl: GeneratorTemplate) => {
     setSelectedProjectId(tpl.projectId);
     setMinImages(tpl.minImages);
     setMaxImages(tpl.maxImages);
     setNumPosts(tpl.numPosts);
-    setSelectedPromptIds(tpl.promptIds);
     setIdeasInput((tpl.postIdeas || []).join("\n"));
     setGeneratorMoods((tpl.moods || []).join("\n"));
     setGeneratorHashtags(tpl.hashtags || "");
+    setPromptInput(tpl.prompt || "");
   }, []);
 
   React.useEffect(() => {
@@ -143,8 +145,6 @@ export default function AutoPosts() {
         const projectsList = await listProjects();
         setProjects(projectsList);
         if (projectsList.length > 0) setSelectedProjectId(projectsList[0].id);
-        const prompts = await listPrompts();
-        setAvailablePrompts(prompts);
         const tpls = await listGeneratorTemplates();
         setTemplates(tpls);
       } catch (e) {
@@ -170,8 +170,8 @@ export default function AutoPosts() {
       return;
     }
     const moods = generatorMoods.split(/\n|,/).map(s => s.trim()).filter(Boolean);
-    if (selectedPromptIds.length === 0 && availablePrompts.length === 0) {
-      setError("Select at least one prompt in the list (Settings → Prompt Management)");
+    if (!promptInput.trim()) {
+      setError("Enter a prompt for AI caption generation");
       return;
     }
 
@@ -186,15 +186,7 @@ export default function AutoPosts() {
     setSuccess(null);
 
     try {
-      const promptsToUse = (selectedPromptIds.length > 0 ? availablePrompts.filter(p => selectedPromptIds.includes(p.id)) : availablePrompts)
-        .map(p => p.content)
-        .filter(Boolean);
-      if (promptsToUse.length === 0) {
-        setError("No prompts available. Please add prompts in Settings");
-        setGenerating(false);
-        return;
-      }
-      const generatedPosts = await generatePostsFromProject(selectedProject, minImages, maxImages, promptsToUse, numPosts, userIdeas, moods, generatorHashtags.trim());
+      const generatedPosts = await generatePostsFromProject(selectedProject, minImages, maxImages, promptInput.trim(), numPosts, userIdeas, moods, generatorHashtags.trim());
       setSuccess(`Successfully generated ${generatedPosts.length} posts!`);
     } catch (error) {
       console.error("Failed to generate posts:", error);
@@ -208,7 +200,7 @@ export default function AutoPosts() {
     project: Project, 
     minImages: number, 
     maxImages: number,
-    promptsToUse: string[],
+    prompt: string,
     desiredCount: number,
     userIdeas: string[],
     moods: string[],
@@ -232,7 +224,6 @@ export default function AutoPosts() {
     let pairs = uniquePairs(moods || [], userIdeas);
 
     let imageIndex = 0;
-    let promptIdx = 0;
     while (imageIndex < totalImages && posts.length < desiredCount) {
       if (pairs.length === 0) break;
 
@@ -246,17 +237,13 @@ export default function AutoPosts() {
       const idx = Math.floor(Math.random() * pairs.length);
       const [chosenMood, chosenIdea] = pairs.splice(idx, 1)[0];
 
-      // Choose prompt: rotate through selected prompts
-      const promptSource = promptsToUse[promptIdx % promptsToUse.length];
-      promptIdx++;
-
       const resultMood = `moods - ${chosenMood}, post ideas - ${chosenIdea}`.trim();
 
-      const filledPrompt = promptSource
+      const filledPrompt = prompt
         .replace(/[\u00A0\u2007\u202F\u2009\u200A\u200B\uFEFF]/g, ' ')
-          .replace(/\{\s*Tone\s*\}/g, tone ?? '')
-          .replace(/\{\s*Project\s*Description\s*\}/g, description ?? '')
-          .replace(/\{\s*Mood\s*\}/g, resultMood ?? '');
+        .replace(/\{\s*Tone\s*\}/g, tone ?? '')
+        .replace(/\{\s*Project\s*Description\s*\}/g, description ?? '')
+        .replace(/\{\s*Mood\s*\}/g, resultMood ?? '');
 
       console.log(filledPrompt.includes("{ Mood }"))
       console.log('result prompt', filledPrompt)
@@ -293,7 +280,7 @@ export default function AutoPosts() {
   };
 
   const selectedProject = projects.find(p => p.id === selectedProjectId);
-  const canGenerate = selectedProject && selectedProject.images.length > 0 && minImages <= maxImages && numPosts >= 1;
+  const canGenerate = selectedProject && selectedProject.images.length > 0 && minImages <= maxImages && numPosts >= 1 && promptInput.trim();
 
   if (loading) {
     return (
@@ -373,28 +360,17 @@ export default function AutoPosts() {
           />
         </Box>
 
-        <FormControl fullWidth>
-          <InputLabel id="prompts-select-label">Prompts</InputLabel>
-          <Select
-            labelId="prompts-select-label"
-            multiple
-            value={selectedPromptIds}
-            label="Prompts"
-            onChange={(e) => setSelectedPromptIds(Array.isArray(e.target.value) ? e.target.value as string[] : [])}
-            renderValue={(selected) => (
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                {(selected as string[]).map((id) => {
-                  const p = availablePrompts.find(x => x.id === id);
-                  return <Chip key={id} label={p?.name || id} />
-                })}
-              </Box>
-            )}
-          >
-            {availablePrompts.map(p => (
-              <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+        <TextField
+          fullWidth
+          label="AI Prompt"
+          value={promptInput}
+          onChange={(e) => setPromptInput(e.target.value)}
+          multiline
+          minRows={4}
+          placeholder="Use placeholders: { Tone }, { Mood }, { Project Description }"
+          helperText="This prompt will be used to generate captions. Include placeholders for dynamic content."
+          sx={{ mb: 3 }}
+        />
       </Paper>
 
       <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
@@ -455,6 +431,7 @@ export default function AutoPosts() {
         )}
       </Paper>
 
+      {/* Template Save Dialog */}
       <Dialog open={templateDialogOpen} onClose={() => setTemplateDialogOpen(false)}>
         <DialogTitle>Save as template</DialogTitle>
         <DialogContent>
@@ -471,7 +448,7 @@ export default function AutoPosts() {
           <Button onClick={() => setTemplateDialogOpen(false)}>Cancel</Button>
           <Button onClick={async () => {
             const userIdeas = ideasInput.split(/\n|,/).map(s => s.trim()).filter(Boolean);
-            if (!templateName.trim() || !selectedProjectId || minImages > maxImages || userIdeas.length === 0 || (selectedPromptIds.length === 0 && availablePrompts.length === 0)) {
+            if (!templateName.trim() || !selectedProjectId || minImages > maxImages || userIdeas.length === 0 || !promptInput.trim()) {
               return;
             }
             const moods = generatorMoods.split(/\n|,/).map(s => s.trim()).filter(Boolean);
@@ -481,7 +458,7 @@ export default function AutoPosts() {
               projectId: selectedProjectId,
               minImages,
               maxImages,
-              promptIds: selectedPromptIds.length > 0 ? selectedPromptIds : availablePrompts.map(p => p.id),
+              prompt: promptInput.trim(),
               postIdeas: userIdeas,
               moods,
               hashtags: generatorHashtags.trim() || undefined,

@@ -1,11 +1,11 @@
-export type InstagramSectionKey = "feed" | "generator" | "scheduler";
+export type PinterestSectionKey = "feed" | "generator" | "scheduler";
 
-interface InstagramSidebarProps {
-  selected: InstagramSectionKey;
-  onSelect: (section: InstagramSectionKey) => void;
+interface PinterestSidebarProps {
+  selected: PinterestSectionKey;
+  onSelect: (section: PinterestSectionKey) => void;
 }
 
-export default function InstagramSidebar({ selected, onSelect }: InstagramSidebarProps) {
+export default function PinterestSidebar({ selected, onSelect }: PinterestSidebarProps) {
   return (
     <aside
       style={{
@@ -23,17 +23,17 @@ export default function InstagramSidebar({ selected, onSelect }: InstagramSideba
       }}
     >
       <nav style={{ display: "grid", gap: 12 }}>
-        <InstagramSidebarButton
+        <PinterestSidebarButton
           label="Feed"
           active={selected === "feed"}
           onClick={() => onSelect("feed")}
         />
-        <InstagramSidebarButton
+        <PinterestSidebarButton
           label="Generator"
           active={selected === "generator"}
           onClick={() => onSelect("generator")}
         />
-        <InstagramSidebarButton
+        <PinterestSidebarButton
           label="Scheduler"
           active={selected === "scheduler"}
           onClick={() => onSelect("scheduler")}
@@ -43,7 +43,7 @@ export default function InstagramSidebar({ selected, onSelect }: InstagramSideba
   );
 }
 
-function InstagramSidebarButton({
+function PinterestSidebarButton({
   label,
   active,
   onClick,

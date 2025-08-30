@@ -7,7 +7,7 @@ import Typography from "@mui/material/Typography";
 import { ChevronLeft, ChevronRight, Close, Delete, Save as SaveIcon } from "@mui/icons-material";
 import { type PinterestPost, updatePinterestPost } from "../../lib/db";
 import { getImageUrlFromAppDir } from "../../lib/fs";
-import { MenuItem, Select, FormControl, InputLabel, Button, TextField } from "@mui/material";
+import { Button, TextField } from "@mui/material";
 import { confirm } from "@tauri-apps/plugin-dialog";
 
 interface PinterestPostDetailModalProps {

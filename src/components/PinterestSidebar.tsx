@@ -1,4 +1,4 @@
-export type PinterestSectionKey = "feed" | "generator" | "scheduler";
+export type PinterestSectionKey = "feed" | "generator";
 
 interface PinterestSidebarProps {
   selected: PinterestSectionKey;
@@ -33,11 +33,7 @@ export default function PinterestSidebar({ selected, onSelect }: PinterestSideba
           active={selected === "generator"}
           onClick={() => onSelect("generator")}
         />
-        <PinterestSidebarButton
-          label="Scheduler"
-          active={selected === "scheduler"}
-          onClick={() => onSelect("scheduler")}
-        />
+
       </nav>
     </aside>
   );

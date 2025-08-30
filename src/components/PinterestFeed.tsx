@@ -4,9 +4,10 @@ import AccessTimeIcon from '@mui/icons-material/AccessTime';
 
 import AddPinterestPostFab from "../features/posts/AddPinterestPostFab";
 import PinterestPostDetailModal from "../features/posts/PinterestPostDetailModal";
-import { listPinterestPosts, updatePinterestPost, deletePinterestPost, type PinterestPost } from "../lib/db";
+import { listPinterestPosts, deletePinterestPost, type PinterestPost } from "../lib/db";
 import { listSchedules } from "../lib/db";
 import { getImageUrlFromAppDir, deleteImageFromAppDir } from "../lib/fs";
+import ScheduleButton from "./ScheduleButton.tsx";
 
 type GridItem = { id: string; url: string; post: PinterestPost };
 
@@ -146,6 +147,7 @@ export default function PinterestFeed() {
             </ImageList>
 
             <AddPinterestPostFab onSaved={() => loadPinterestPosts(true)} />
+            <ScheduleButton type="pinterest" />
 
             {selectedPost && (
                 <PinterestPostDetailModal
@@ -169,8 +171,7 @@ export default function PinterestFeed() {
 function PinterestTile({ 
     src, 
     showScheduledBadge, 
-    onClick, 
-    onDelete 
+    onClick
 }: { 
     src: string; 
     showScheduledBadge: boolean; 

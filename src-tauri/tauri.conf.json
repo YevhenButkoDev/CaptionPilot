@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "CEO Automation",
+        "title": "CaptionPilot",
         "width": 1400.0,
         "height": 1200.0,
         "resizable": true,
@@ -20,7 +20,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self' ipc: http://ipc.localhost; img-src 'self' asset: http://asset.localhost data:; style-src 'self' 'unsafe-inline'; font-src 'self' data:",
+      "csp": "default-src 'self' ipc: http://ipc.localhost https://api.openai.com; img-src 'self' asset: http://asset.localhost data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; connect-src 'self' https://api.openai.com;",
       "capabilities": ["path-access", "default", "fs-storage", "dialog"],
       "assetProtocol": {
         "enable": true,

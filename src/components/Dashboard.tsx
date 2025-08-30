@@ -34,7 +34,6 @@ export default function Dashboard() {
   const [metrics, setMetrics] = React.useState<DashboardMetrics | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
-  const [lastUpdated, setLastUpdated] = React.useState<Date | null>(null);
 
   const loadMetrics = async () => {
     try {
@@ -71,7 +70,6 @@ export default function Dashboard() {
         publishedPosts,
         scheduledPosts
       });
-      setLastUpdated(new Date());
     } catch (err) {
       console.error('Error loading dashboard metrics:', err);
       setError('Failed to load dashboard data');
@@ -163,7 +161,7 @@ export default function Dashboard() {
       
       <Grid container spacing={3}>
         {metricCards.map((card, index) => (
-          <Grid item xs={12} sm={6} md={4} key={index}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }} key={index}>
             <Paper
               elevation={3}
               sx={{

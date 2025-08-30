@@ -1,4 +1,4 @@
-export type InstagramSectionKey = "feed" | "generator" | "scheduler";
+export type InstagramSectionKey = "feed" | "generator";
 
 interface InstagramSidebarProps {
   selected: InstagramSectionKey;
@@ -33,11 +33,7 @@ export default function InstagramSidebar({ selected, onSelect }: InstagramSideba
           active={selected === "generator"}
           onClick={() => onSelect("generator")}
         />
-        <InstagramSidebarButton
-          label="Scheduler"
-          active={selected === "scheduler"}
-          onClick={() => onSelect("scheduler")}
-        />
+
       </nav>
     </aside>
   );

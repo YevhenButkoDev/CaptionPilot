@@ -17,6 +17,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import AddPostFab from "../features/posts/AddPostFab";
 import PostDetailModal from "../features/posts/PostDetailModal";
+import ScheduleButton from "./ScheduleButton";
 import { listDraftPosts, updateDraftPositions, deleteDraftPost, type DraftPost } from "../lib/db";
 import { listSchedules } from "../lib/db";
 import { getImageUrlFromAppDir, deleteImageFromAppDir } from "../lib/fs";
@@ -182,6 +183,7 @@ export default function DraggableImageList() {
                     </ImageList>
                 </SortableContext>
                 <AddPostFab onSaved={() => { void loadDrafts(true); }} />
+                <ScheduleButton type="instagram" />
                 
                 {/* Post Detail Modal */}
                 <PostDetailModal

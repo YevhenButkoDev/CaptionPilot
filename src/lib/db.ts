@@ -51,6 +51,15 @@ export type PostSchedule = {
   createdAt: number;
 };
 
+export type Schedule = {
+  id: string;
+  type: 'instagram' | 'pinterest';
+  status: 'in_process' | 'paused';
+  amountOfPostsPerWeek: number;
+  createdAt: number;
+  updatedAt: number;
+};
+
 export type GeneratorTemplate = {
   id: string;
   name: string;
@@ -66,13 +75,14 @@ export type GeneratorTemplate = {
 };
 
 const DB_NAME = "inst-automation";
-const DB_VERSION = 7; // Increment version for new stores
+const DB_VERSION = 8; // Increment version for new stores
 const STORE_KV = "kv";
 const STORE_POSTS = "draftPosts";
 const STORE_PINTEREST_POSTS = "pinterestPosts";
 const STORE_PROJECTS = "projects";
 const STORE_PROMPTS = "prompts";
 const STORE_SCHEDULES = "schedules";
+const STORE_SCHEDULE = "schedule";
 const STORE_GENERATOR_TEMPLATES = "generatorTemplates";
 
 function openDb(): Promise<IDBDatabase> {
@@ -98,6 +108,11 @@ function openDb(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains(STORE_SCHEDULES)) {
         const store = db.createObjectStore(STORE_SCHEDULES, { keyPath: "id" });
         store.createIndex("createdAt", "createdAt", { unique: false });
+      }
+      if (!db.objectStoreNames.contains(STORE_SCHEDULE)) {
+        const store = db.createObjectStore(STORE_SCHEDULE, { keyPath: "id" });
+        store.createIndex("type", "type", { unique: false });
+        store.createIndex("status", "status", { unique: false });
       }
       if (!db.objectStoreNames.contains(STORE_GENERATOR_TEMPLATES)) {
         const store = db.createObjectStore(STORE_GENERATOR_TEMPLATES, { keyPath: "id" });
@@ -469,6 +484,41 @@ export async function deleteSchedule(id: string): Promise<void> {
     const tx = db.transaction(STORE_SCHEDULES, 'readwrite');
     const store = tx.objectStore(STORE_SCHEDULES);
     const req = store.delete(id);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+
+// Schedule CRUD functions
+export async function addScheduleConfig(schedule: Schedule): Promise<void> {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_SCHEDULE, 'readwrite');
+    const store = tx.objectStore(STORE_SCHEDULE);
+    const req = store.add(schedule);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function getScheduleConfigByType(type: 'instagram' | 'pinterest'): Promise<Schedule | null> {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_SCHEDULE, 'readonly');
+    const store = tx.objectStore(STORE_SCHEDULE);
+    const index = store.index('type');
+    const req = index.get(type);
+    req.onsuccess = () => resolve(req.result || null);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function updateScheduleConfig(schedule: Schedule): Promise<void> {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_SCHEDULE, 'readwrite');
+    const store = tx.objectStore(STORE_SCHEDULE);
+    const req = store.put(schedule);
     req.onsuccess = () => resolve();
     req.onerror = () => reject(req.error);
   });

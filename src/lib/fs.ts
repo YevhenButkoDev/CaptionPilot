@@ -178,15 +178,49 @@ export async function getImageUrlFromAppDir(fileName: string): Promise<string> {
     throw new Error("Tauri path/core APIs not available");
   }
 
-  // ensure subfolder exists (returns "images")
-  const relDir = await ensureImageDir();
+  try {
+    // ensure subfolder exists (returns "images")
+    const relDir = await ensureImageDir();
 
-  // build absolute path: <AppData>/<your-app>/images/<fileName>
-  const base = await path.appDataDir();
-  const absPath = await path.join(base, relDir, fileName);
+    // build absolute path: <AppData>/<your-app>/images/<fileName>
+    const base = await path.appDataDir();
+    const absPath = await path.join(base, relDir, fileName);
 
-  // make it WebView-safe
-  return tauri.convertFileSrc(absPath);
+    console.log('Image path:', { fileName, relDir, base, absPath });
+
+    // make it WebView-safe
+    const url = tauri.convertFileSrc(absPath);
+    console.log('Converted URL:', url);
+    
+    // Test if the URL is accessible
+    try {
+      const testResponse = await fetch(url);
+      if (testResponse.ok) {
+        console.log('Image URL is accessible');
+        return url;
+      } else {
+        console.warn('Image URL not accessible, status:', testResponse.status);
+      }
+    } catch (fetchError) {
+      console.warn('Failed to fetch image URL:', fetchError);
+    }
+    
+    // Fallback: try to create a blob URL from the file
+    try {
+      const { fs } = await tauriImports();
+      const fileBytes = await fs.readFile(absPath, { baseDir: fs.BaseDirectory.AppData });
+      const blob = new Blob([fileBytes], { type: 'application/octet-stream' });
+      const blobUrl = URL.createObjectURL(blob);
+      console.log('Created fallback blob URL:', blobUrl);
+      return blobUrl;
+    } catch (blobError) {
+      console.error('Failed to create blob URL:', blobError);
+      throw new Error(`Failed to load image: ${fileName}`);
+    }
+  } catch (error) {
+    console.error('Error getting image URL:', error);
+    throw error;
+  }
 }
 
 export async function deleteImageFromAppDir(fileName: string): Promise<void> {
@@ -218,7 +252,7 @@ export async function listProjectAssets(): Promise<{ fileName: string; mimeType:
     const files = await fs.readDir(dir, { baseDir: fs.BaseDirectory.AppData });
     
     // Filter for image files and get their metadata
-    const imageFiles = files.filter(file => 
+    const imageFiles = files.filter((file: any) =>
       file.name && !file.children && // Ensure it's a file, not a directory
       (file.name.endsWith('.jpg') || 
        file.name.endsWith('.jpeg') || 
@@ -229,7 +263,7 @@ export async function listProjectAssets(): Promise<{ fileName: string; mimeType:
     
     // Get file info for each image
     const assets = await Promise.all(
-      imageFiles.map(async (file) => {
+      imageFiles.map(async (file: any) => {
         try {
           const fullPath = `${dir}/${file.name}`;
           const stats = await fs.stat(fullPath, { baseDir: fs.BaseDirectory.AppData });

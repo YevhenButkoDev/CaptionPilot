@@ -11,7 +11,6 @@ import {
   Alert,
   CircularProgress,
   Paper,
-  Chip,
   Stack,
   IconButton,
   Dialog,
@@ -31,10 +30,21 @@ import { addGeneratorTemplate, listGeneratorTemplates, deleteGeneratorTemplate, 
 
 async function generateCaptionWithOpenAI(prompt: string): Promise<string[] | null> {
   try {
+    console.log('Starting OpenAI API call...');
+    
     const savedSettings = localStorage.getItem("app-settings");
-    if (!savedSettings) return null;
+    if (!savedSettings) {
+      console.log('No app settings found');
+      return null;
+    }
+    
     const { openaiSecretKey } = JSON.parse(savedSettings || '{}');
-    if (!openaiSecretKey) return null;
+    if (!openaiSecretKey) {
+      console.log('No OpenAI API key found in settings');
+      return null;
+    }
+
+    console.log('OpenAI API key found, making request...');
 
     const enforcedOutput = 'Output:\n' +
         '- Return the captions **strictly in JSON format**, nothing else.\n' +
@@ -60,6 +70,7 @@ async function generateCaptionWithOpenAI(prompt: string): Promise<string[] | nul
     // Remove any existing Output section heuristically
     const cleaned = prompt.replace(/\n?Output[\s\S]*$/i, "").trim() + enforcedOutput;
 
+    console.log('Making fetch request to OpenAI...');
     const resp = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -76,20 +87,36 @@ async function generateCaptionWithOpenAI(prompt: string): Promise<string[] | nul
       }),
     });
 
-    console.log('open ai response', resp);
+    console.log('OpenAI response status:', resp.status, resp.statusText);
+    console.log('OpenAI response headers:', Object.fromEntries(resp.headers.entries()));
 
-    if (!resp.ok) return null;
+    if (!resp.ok) {
+      const errorText = await resp.text();
+      console.error('OpenAI API error:', errorText);
+      return null;
+    }
+    
     const data = await resp.json();
+    console.log('OpenAI response data:', data);
+    
     const text = data?.choices?.[0]?.message?.content?.trim();
-    if (!text) return null;
+    if (!text) {
+      console.log('No content in OpenAI response');
+      return null;
+    }
+    
     try {
       const parsed = JSON.parse(text);
       const captions: string[] = Array.isArray(parsed?.captions) ? parsed.captions.map((c: any) => String(c?.text || "").trim()).filter(Boolean) : [];
+      console.log('Parsed captions:', captions);
       return captions.length ? captions : null;
-    } catch {
+    } catch (parseError) {
+      console.error('Failed to parse OpenAI response as JSON:', parseError);
+      console.log('Raw response text:', text);
       return null;
     }
-  } catch {
+  } catch (error) {
+    console.error('Error in generateCaptionWithOpenAI:', error);
     return null;
   }
 }
@@ -207,9 +234,6 @@ export default function AutoPosts() {
     hashtags: string
   ): Promise<DraftPost[]> => {
     const { images, description, tone } = project;
-
-    console.log('description', description);
-
     const posts: DraftPost[] = [];
 
     const totalImages = images.length;
@@ -223,13 +247,20 @@ export default function AutoPosts() {
     // Build pool of unique mood/idea pairs using user ideas, not project ideas
     let pairs = uniquePairs(moods || [], userIdeas);
 
+    if (pairs.length < desiredCount) {
+      throw new Error('The mood - ideas combination is lower that desired posts count of ' + desiredCount);
+    }
+
     let imageIndex = 0;
     while (imageIndex < totalImages && posts.length < desiredCount) {
+
       if (pairs.length === 0) break;
 
       const remainingImages = totalImages - imageIndex;
       let imagesForThisPost: number;
-      if (remainingImages <= maxImagesPerPost) imagesForThisPost = remainingImages; else if (remainingImages >= minImagesPerPost * 2) imagesForThisPost = maxImagesPerPost; else imagesForThisPost = Math.ceil(remainingImages / 2);
+      if (remainingImages <= maxImagesPerPost) imagesForThisPost = remainingImages;
+        else if (remainingImages >= minImagesPerPost * 2) imagesForThisPost = maxImagesPerPost;
+        else imagesForThisPost = Math.ceil(remainingImages / 2);
       imagesForThisPost = Math.min(imagesForThisPost, 6);
 
       const postImages = images.slice(imageIndex, imageIndex + imagesForThisPost);
@@ -245,16 +276,15 @@ export default function AutoPosts() {
         .replace(/\{\s*Project\s*Description\s*\}/g, description ?? '')
         .replace(/\{\s*Mood\s*\}/g, resultMood ?? '');
 
-      console.log(filledPrompt.includes("{ Mood }"))
-      console.log('result prompt', filledPrompt)
-      console.log('result mood', resultMood)
-
       if (filledPrompt.includes("{ Mood }")) {
         throw Error("Mood is not replaced")
       }
 
       const aiCaptions = await generateCaptionWithOpenAI(filledPrompt);
-      const cleanedCaptions = (aiCaptions || [filledPrompt]).map(c => {
+      if (aiCaptions == null) {
+        throw new Error('Error while generating AI Captions');
+      }
+      const cleanedCaptions = aiCaptions.map(c => {
         const noTags = stripHashtags(c);
         return hashtags ? `${noTags}\n\n${hashtags}` : noTags;
       });

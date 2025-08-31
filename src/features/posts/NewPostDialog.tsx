@@ -57,9 +57,19 @@ export default function NewPostDialog({ open, onClose, onSaved }: Props) {
       setCompressing(false);
 
       const savedImages = [] as DraftPost["images"];
+      const originalFiles: DraftPost["originalFiles"] = [];
+      
       for (const f of compressedImages) {
         const meta = await saveImageToAppDir(f);
         savedImages.push(meta);
+        
+        // Store original file metadata for Cloudinary upload
+        originalFiles.push({
+          name: f.name,
+          type: f.type,
+          size: f.size,
+          lastModified: f.lastModified
+        });
       }
 
       const id = (crypto as any).randomUUID?.() ?? Math.random().toString(36).slice(2);
@@ -70,6 +80,7 @@ export default function NewPostDialog({ open, onClose, onSaved }: Props) {
         createdAt: Date.now(),
         caption,
         images: savedImages,
+        originalFiles,
         position: nextPos,
         status: 'new',
       };

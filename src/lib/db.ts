@@ -8,6 +8,10 @@ export type DraftPost = {
   aiCaptions?: string[]; // optional list of AI-generated captions
   selectedCaptionIndex?: number; // index into aiCaptions
   images: { fileName: string; mimeType: string; size: number }[];
+  originalFiles?: { name: string; type: string; size: number; lastModified: number }[]; // Store original file metadata
+  cloudinaryImages?: { publicId: string; secureUrl: string; width: number; height: number; format: string; bytes: number }[];
+  instagramPostId?: string; // Instagram post ID after publishing
+  instagramContainerId?: string; // Instagram media container ID
   projectId?: string;
   position?: number; // lower comes first; fallback to createdAt desc if missing
   status?: 'new' | 'published' | 'scheduled';
@@ -19,6 +23,8 @@ export type PinterestPost = {
   createdAt: number;
   description: string; // Pinterest pin description
   images: { fileName: string; mimeType: string; size: number }[];
+  originalFiles?: { name: string; type: string; size: number; lastModified: number }[]; // Store original file metadata
+  cloudinaryImages?: { publicId: string; secureUrl: string; width: number; height: number; format: string; bytes: number }[];
   projectId?: string;
   websiteUrl?: string; // Pinterest-specific website URL
   position?: number; // lower comes first; fallback to createdAt desc if missing
@@ -54,7 +60,7 @@ export type PostSchedule = {
 export type Schedule = {
   id: string;
   type: 'instagram' | 'pinterest';
-  status: 'in_process' | 'paused';
+  status: 'in_process' | 'paused' | 'stopped';
   amountOfPostsPerWeek: number;
   createdAt: number;
   updatedAt: number;
@@ -112,7 +118,6 @@ function openDb(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains(STORE_SCHEDULE)) {
         const store = db.createObjectStore(STORE_SCHEDULE, { keyPath: "id" });
         store.createIndex("type", "type", { unique: false });
-        store.createIndex("status", "status", { unique: false });
       }
       if (!db.objectStoreNames.contains(STORE_GENERATOR_TEMPLATES)) {
         const store = db.createObjectStore(STORE_GENERATOR_TEMPLATES, { keyPath: "id" });
@@ -489,7 +494,30 @@ export async function deleteSchedule(id: string): Promise<void> {
   });
 }
 
-// Schedule CRUD functions
+// Additional Schedule helper functions
+export async function getSchedulesByProject(projectId: string): Promise<PostSchedule[]> {
+  return listSchedulesByProject(projectId);
+}
+
+export async function deleteSchedulesByProject(projectId: string): Promise<void> {
+  const schedules = await listSchedulesByProject(projectId);
+  for (const schedule of schedules) {
+    await deleteSchedule(schedule.id);
+  }
+}
+
+export async function updateSchedule(schedule: PostSchedule): Promise<void> {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_SCHEDULES, 'readwrite');
+    const store = tx.objectStore(STORE_SCHEDULES);
+    const req = store.put(schedule);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+
+// Schedule configuration functions for the ScheduleButton component
 export async function addScheduleConfig(schedule: Schedule): Promise<void> {
   const db = await openDb();
   return new Promise((resolve, reject) => {

@@ -1,6 +1,7 @@
 import * as React from "react";
 import { ImageList, ImageListItem, Box, Typography } from "@mui/material";
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 
 import AddPinterestPostFab from "../features/posts/AddPinterestPostFab";
 import PinterestPostDetailModal from "../features/posts/PinterestPostDetailModal";
@@ -139,6 +140,7 @@ export default function PinterestFeed() {
                     <PinterestTile 
                         key={it.id} 
                         src={it.url} 
+                        post={it.post}
                         showScheduledBadge={hasSchedule && (it.post.status === 'scheduled' || it.post.status === undefined || it.post.status === 'new')}
                         onClick={() => handlePostClick(it.post)}
                         onDelete={() => handlePostDelete(it.id)}
@@ -162,6 +164,11 @@ export default function PinterestFeed() {
                         setModalOpen(false);
                         setSelectedPost(null);
                     }}
+                    onPostUpdated={(updatedPost) => {
+                        // Update the selected post and refresh the feed
+                        setSelectedPost(updatedPost);
+                        loadPinterestPosts(true);
+                    }}
                 />
             )}
         </Box>
@@ -170,10 +177,12 @@ export default function PinterestFeed() {
 
 function PinterestTile({ 
     src, 
+    post,
     showScheduledBadge, 
     onClick
 }: { 
     src: string; 
+    post: PinterestPost;
     showScheduledBadge: boolean; 
     onClick: () => void; 
     onDelete: () => void;
@@ -227,6 +236,28 @@ function PinterestTile({
                 >
                     <AccessTimeIcon sx={{ fontSize: "1rem" }} />
                     Scheduled
+                </Box>
+            )}
+            {post.instagramPostId && (
+                <Box
+                    sx={{
+                        position: "absolute",
+                        top: 8,
+                        left: 8,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 0.5,
+                        bgcolor: "rgba(76, 175, 80, 0.9)",
+                        color: "white",
+                        px: 1,
+                        py: 0.5,
+                        borderRadius: 1,
+                        fontSize: "0.75rem",
+                        zIndex: 2,
+                    }}
+                >
+                    <CheckCircleOutlineIcon sx={{ fontSize: "1rem" }} />
+                    Published
                 </Box>
             )}
         </ImageListItem>

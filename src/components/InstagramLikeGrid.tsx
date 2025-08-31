@@ -1,6 +1,7 @@
 import * as React from "react";
 import { ImageList, ImageListItem, Box } from "@mui/material";
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import {
     DndContext,
     closestCenter,
@@ -176,6 +177,7 @@ export default function DraggableImageList() {
                                 key={it.id} 
                                 id={it.id} 
                                 src={it.url} 
+                                post={it.post}
                                 showScheduledBadge={hasSchedule && (it.post.status === 'scheduled' || it.post.status === undefined || it.post.status === 'new')}
                                 onClick={() => handlePostClick(it.post)}
                             />
@@ -222,16 +224,19 @@ export default function DraggableImageList() {
 function SortableTile({ 
     id, 
     src, 
+    post,
     onClick,
     showScheduledBadge
 }: { 
     id: string; 
     src: string; 
+    post: DraftPost;
     onClick: () => void;
     showScheduledBadge?: boolean;
 }) {
+    const isPublished = post.instagramPostId !== undefined;
     const { setNodeRef, attributes, listeners, transform, transition, isDragging } =
-        useSortable({ id });
+        useSortable({ id, disabled: isPublished });
 
     const style = {
         transform: CSS.Transform.toString(transform),
@@ -271,6 +276,28 @@ function SortableTile({
             {showScheduledBadge && (
                 <Box sx={{ position: 'absolute', top: 6, right: 6, bgcolor: 'rgba(0,0,0,0.5)', borderRadius: '50%', p: '2px', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <AccessTimeIcon fontSize="small" />
+                </Box>
+            )}
+            {post.instagramPostId && (
+                <Box
+                    sx={{
+                        position: "absolute",
+                        top: 8,
+                        left: 8,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 0.5,
+                        bgcolor: "rgba(76, 175, 80, 0.9)",
+                        color: "white",
+                        px: 1,
+                        py: 0.5,
+                        borderRadius: 1,
+                        fontSize: "0.75rem",
+                        zIndex: 2,
+                    }}
+                >
+                    <CheckCircleOutlineIcon sx={{ fontSize: "1rem" }} />
+                    Published
                 </Box>
             )}
         </ImageListItem>

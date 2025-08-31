@@ -4,11 +4,13 @@ import DialogContent from "@mui/material/DialogContent";
 import IconButton from "@mui/material/IconButton";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
-import { ChevronLeft, ChevronRight, Close, Delete, Save as SaveIcon } from "@mui/icons-material";
+import { ChevronLeft, ChevronRight, Close, Delete, Save as SaveIcon, CloudUpload, CheckCircleOutline as CheckCircleOutlineIcon } from "@mui/icons-material";
 import { type PinterestPost, updatePinterestPost } from "../../lib/db";
 import { getImageUrlFromAppDir } from "../../lib/fs";
-import { Button, TextField } from "@mui/material";
+import { Button, TextField, Alert, CircularProgress } from "@mui/material";
 import { confirm } from "@tauri-apps/plugin-dialog";
+import { uploadPinterestPostImages, hasCloudinaryImages } from "../../lib/postUpload";
+import { canUseCloudinary } from "../../lib/cloudinaryUtils";
 
 interface PinterestPostDetailModalProps {
   post: PinterestPost | null;
@@ -25,6 +27,9 @@ export default function PinterestPostDetailModal({ post, open, onClose, onDelete
   const [descriptionDraft, setDescriptionDraft] = React.useState<string>(post?.description ?? "");
   const [websiteUrlDraft, setWebsiteUrlDraft] = React.useState<string>(post?.websiteUrl ?? "");
   const [saving, setSaving] = React.useState(false);
+  const [publishing, setPublishing] = React.useState(false);
+  const [publishResult, setPublishResult] = React.useState<{ success: boolean; message: string } | null>(null);
+
 
 
 
@@ -65,28 +70,7 @@ export default function PinterestPostDetailModal({ post, open, onClose, onDelete
     );
   };
 
-  const handleSetAsMain = async () => {
-    if (!post) return;
-    try {
-      const images = [...post.images];
-      const [selected] = images.splice(currentImageIndex, 1);
-      images.unshift(selected);
-      const updated: PinterestPost = { ...post, images };
-      await updatePinterestPost(updated);
-      // Reorder local urls to match without refetch
-      setImageUrls(prev => {
-        if (!prev || prev.length === 0) return prev;
-        const urls = [...prev];
-        const [u] = urls.splice(currentImageIndex, 1);
-        urls.unshift(u);
-        return urls;
-      });
-      setCurrentImageIndex(0);
-      onPostUpdated?.(updated);
-    } catch (e) {
-      // ignore
-    }
-  };
+
 
   const handleDelete = async () => {
     const accepted = await confirm("Are you sure you want to delete this Pinterest post?", {
@@ -116,6 +100,62 @@ export default function PinterestPostDetailModal({ post, open, onClose, onDelete
       console.error("Failed to save Pinterest post:", error);
     } finally {
       setSaving(false);
+    }
+  };
+
+
+
+  const handlePublish = async () => {
+    if (!post) return;
+    
+    setPublishing(true);
+    setPublishResult(null);
+    
+    try {
+      const result = await uploadPinterestPostImages(post, {
+        folder: 'pinterest-posts',
+        tags: ['social-media', 'automated']
+      });
+      
+      if (result.success) {
+        let message = `Successfully uploaded ${result.cloudinaryImages?.length || 0} image(s) to Cloudinary!`;
+        
+        if (result.instagramPostId) {
+          message += ` Post published to Instagram with ID: ${result.instagramPostId}`;
+        } else if (result.error && result.error.includes('Instagram')) {
+          message += ` Note: ${result.error}`;
+        }
+        
+        setPublishResult({
+          success: true,
+          message: message
+        });
+        // Update the post in the parent component with the updated post from the result
+        if (result.cloudinaryImages) {
+          const updatedPost = {
+            ...post,
+            cloudinaryImages: result.cloudinaryImages,
+            instagramPostId: result.instagramPostId,
+            instagramContainerId: result.instagramContainerId
+            // Status remains unchanged - we use instagramPostId as the indicator
+          };
+          // Update local post state to reflect the Instagram publishing status immediately
+          Object.assign(post, updatedPost);
+          onPostUpdated?.(updatedPost);
+        }
+      } else {
+        setPublishResult({
+          success: false,
+          message: result.error || 'Upload failed'
+        });
+      }
+    } catch (error) {
+      setPublishResult({
+        success: false,
+        message: error instanceof Error ? error.message : "Failed to publish to Cloudinary"
+      });
+    } finally {
+      setPublishing(false);
     }
   };
 
@@ -155,6 +195,7 @@ export default function PinterestPostDetailModal({ post, open, onClose, onDelete
 
         {/* Image section */}
         <Box sx={{ position: 'relative', bgcolor: 'black' }}>
+          
           {loading ? (
             <Box sx={{ 
               display: 'flex', 
@@ -165,7 +206,7 @@ export default function PinterestPostDetailModal({ post, open, onClose, onDelete
             }}>
               <Typography>Loading...</Typography>
             </Box>
-          ) : (
+          ) : imageUrls.length > 0 ? (
             <>
               <Box
                 component="img"
@@ -235,33 +276,39 @@ export default function PinterestPostDetailModal({ post, open, onClose, onDelete
                 </Box>
               )}
             </>
+          ) : (
+            <Box sx={{ 
+              display: 'flex', 
+              justifyContent: 'center', 
+              alignItems: 'center', 
+              height: 400,
+              color: 'white'
+            }}>
+              <Typography>No images found</Typography>
+            </Box>
           )}
         </Box>
 
         {/* Content section */}
         <Box sx={{ p: 3 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
             <Typography variant="h6">Edit Pinterest Post</Typography>
-            <Box sx={{ display: 'flex', gap: 1 }}>
-              {post.images.length > 1 && (
-                <Button
-                  variant="outlined"
-                  size="small"
-                  onClick={handleSetAsMain}
-                >
-                  Set as Main Image
-                </Button>
-              )}
-              <Button
-                variant="outlined"
-                color="error"
-                size="small"
-                onClick={handleDelete}
-                startIcon={<Delete />}
-              >
-                Delete
-              </Button>
-            </Box>
+            {post.instagramPostId && (
+              <Box sx={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: 0.5, 
+                bgcolor: 'rgba(76, 175, 80, 0.9)', 
+                color: 'white', 
+                px: 1.5, 
+                py: 0.5, 
+                borderRadius: 2, 
+                fontSize: '0.875rem' 
+              }}>
+                <CheckCircleOutlineIcon sx={{ fontSize: '1rem' }} />
+                Published
+              </Box>
+            )}
           </Box>
 
           <TextField
@@ -283,15 +330,64 @@ export default function PinterestPostDetailModal({ post, open, onClose, onDelete
             sx={{ mb: 3 }}
           />
 
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-            <Button onClick={onClose}>Cancel</Button>
+          {/* Status Messages */}
+          {!canUseCloudinary() && (
+            <Alert severity="warning" sx={{ mb: 2, fontSize: "0.875rem" }}>
+              Cloudinary not configured. Go to Settings to configure your credentials.
+            </Alert>
+          )}
+
+          {post.instagramPostId && (
+            <Alert severity="success" sx={{ mb: 2, fontSize: "0.875rem" }}>
+              This post has been published to Instagram and is ready for social media posting.
+            </Alert>
+          )}
+
+          {hasCloudinaryImages(post) && !post.instagramPostId && (
+            <Alert severity="info" sx={{ mb: 2, fontSize: "0.875rem" }}>
+              This post already has images uploaded to Cloudinary.
+            </Alert>
+          )}
+
+          {publishResult && (
+            <Alert 
+              severity={publishResult.success ? "success" : "error"} 
+              sx={{ mb: 2, fontSize: "0.875rem" }}
+              onClose={() => setPublishResult(null)}
+            >
+              {publishResult.message}
+            </Alert>
+          )}
+
+          {/* Button Row */}
+          <Box sx={{ display: 'flex', gap: 1, mt: 3 }}>
+            <Button
+              variant="outlined"
+              color="error"
+              onClick={handleDelete}
+              startIcon={<Delete />}
+              sx={{ flex: 1 }}
+            >
+              Delete
+            </Button>
             <Button
               variant="contained"
               onClick={handleSave}
               disabled={saving}
               startIcon={saving ? undefined : <SaveIcon />}
+              sx={{ flex: 1 }}
             >
-              {saving ? 'Saving...' : 'Save Changes'}
+              {saving ? 'Saving...' : 'Save'}
+            </Button>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={handlePublish}
+              disabled={publishing || !canUseCloudinary() || hasCloudinaryImages(post) || post.instagramPostId}
+              startIcon={publishing ? <CircularProgress size={16} /> : <CloudUpload />}
+              sx={{ flex: 1 }}
+            >
+              {publishing ? 'Publishing...' : post.instagramPostId ? 'Published' : 'Publish'}
             </Button>
           </Box>
         </Box>

@@ -16,8 +16,9 @@ import { Visibility, VisibilityOff, Save, Refresh } from "@mui/icons-material";
 interface SettingsData {
   openaiSecretKey: string;
   instagramUserToken: string;
-  instagramUserId: string;
   cloudinaryApiKey: string;
+  cloudinaryCloudName: string;
+  cloudinaryUploadPreset: string;
 }
 
 
@@ -26,8 +27,9 @@ export default function Settings() {
   const [settings, setSettings] = React.useState<SettingsData>({
     openaiSecretKey: "",
     instagramUserToken: "",
-    instagramUserId: "",
     cloudinaryApiKey: "",
+    cloudinaryCloudName: "",
+    cloudinaryUploadPreset: "",
   });
 
   const [showPasswords, setShowPasswords] = React.useState<{
@@ -96,8 +98,9 @@ export default function Settings() {
     setSettings({
       openaiSecretKey: "",
       instagramUserToken: "",
-      instagramUserId: "",
       cloudinaryApiKey: "",
+      cloudinaryCloudName: "",
+      cloudinaryUploadPreset: "",
     });
     setError(null);
   };
@@ -128,9 +131,10 @@ export default function Settings() {
 
         <Box sx={{ display: "grid", gap: 3 }}>
           <TextField fullWidth label="OpenAI Secret Key" type={showPasswords.openai ? "text" : "password"} value={settings.openaiSecretKey} onChange={handleInputChange("openaiSecretKey")} placeholder="sk-..." helperText="Your OpenAI API key for AI-powered features" InputProps={{ endAdornment: (<InputAdornment position="end"><IconButton onClick={() => togglePasswordVisibility("openai")} edge="end">{showPasswords.openai ? <VisibilityOff /> : <Visibility />}</IconButton></InputAdornment>) }} />
-          <TextField fullWidth label="Instagram User Token" type={showPasswords.instagram ? "text" : "password"} value={settings.instagramUserToken} onChange={handleInputChange("instagramUserToken")} placeholder="IGQ..." helperText="Your Instagram user access token" InputProps={{ endAdornment: (<InputAdornment position="end"><IconButton onClick={() => togglePasswordVisibility("instagram")} edge="end">{showPasswords.instagram ? <VisibilityOff /> : <Visibility />}</IconButton></InputAdornment>) }} />
-          <TextField fullWidth label="Instagram User ID" type="text" value={settings.instagramUserId} onChange={handleInputChange("instagramUserId")} placeholder="123456789" helperText="Your Instagram user ID (numeric)" />
+          <TextField fullWidth label="Instagram User Token" type={showPasswords.instagram ? "text" : "password"} value={settings.instagramUserToken} onChange={handleInputChange("instagramUserToken")} placeholder="IGQ..." helperText="Your Instagram user access token (will automatically fetch Instagram account details)" InputProps={{ endAdornment: (<InputAdornment position="end"><IconButton onClick={() => togglePasswordVisibility("instagram")} edge="end">{showPasswords.instagram ? <VisibilityOff /> : <Visibility />}</IconButton></InputAdornment>) }} />
           <TextField fullWidth label="Cloudinary API Key" type={showPasswords.cloudinary ? "text" : "password"} value={settings.cloudinaryApiKey} onChange={handleInputChange("cloudinaryApiKey")} placeholder="123456789012345" helperText="Your Cloudinary API key for image management" InputProps={{ endAdornment: (<InputAdornment position="end"><IconButton onClick={() => togglePasswordVisibility("cloudinary")} edge="end">{showPasswords.cloudinary ? <VisibilityOff /> : <Visibility />}</IconButton></InputAdornment>) }} />
+          <TextField fullWidth label="Cloudinary Cloud Name" type="text" value={settings.cloudinaryCloudName} onChange={handleInputChange("cloudinaryCloudName")} placeholder="your-cloud-name" helperText="Your Cloudinary cloud name (found in your dashboard)" />
+          <TextField fullWidth label="Cloudinary Upload Preset" type="text" value={settings.cloudinaryUploadPreset} onChange={handleInputChange("cloudinaryUploadPreset")} placeholder="ml_default" helperText="Your Cloudinary upload preset name (create one in your dashboard)" />
         </Box>
       </Paper>
 

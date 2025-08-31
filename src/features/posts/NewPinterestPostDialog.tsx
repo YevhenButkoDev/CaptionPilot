@@ -61,9 +61,19 @@ export default function NewPinterestPostDialog({ open, onClose, onSaved }: Props
       setCompressing(false);
 
       const savedImages = [] as PinterestPost["images"];
+      const originalFiles: PinterestPost["originalFiles"] = [];
+      
       for (const f of compressedImages) {
         const meta = await saveImageToAppDir(f);
         savedImages.push(meta);
+        
+        // Store original file metadata for Cloudinary upload
+        originalFiles.push({
+          name: f.name,
+          type: f.type,
+          size: f.size,
+          lastModified: f.lastModified
+        });
       }
 
       const id = (crypto as any).randomUUID?.() ?? Math.random().toString(36).slice(2);
@@ -72,6 +82,7 @@ export default function NewPinterestPostDialog({ open, onClose, onSaved }: Props
         createdAt: Date.now(),
         description,
         images: savedImages,
+        originalFiles,
         position: -1, // Place new post at the start
         websiteUrl: websiteUrl || undefined,
         status: 'new',

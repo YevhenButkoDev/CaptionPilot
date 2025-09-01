@@ -10,7 +10,7 @@ import Typography from "@mui/material/Typography";
 import CircularProgress from "@mui/material/CircularProgress";
 import { addProject, type Project, listProjects } from "../../lib/db";
 import { saveImageToAppDir } from "../../lib/fs";
-import { compressImageToFile, shouldCompress } from "../../lib/image";
+import { compressImageStandard, shouldCompress } from "../../lib/image";
 import { FormControl, InputLabel, MenuItem, Select } from "@mui/material";
 
 type Props = { open: boolean; onClose: () => void; onSaved?: (projectId: string) => void };
@@ -61,7 +61,7 @@ export default function NewProjectDialog({ open, onClose, onSaved }: Props) {
       const compressedImages = await Promise.all(
         files.map(async (file) => {
           if (shouldCompress(file)) {
-            return await compressImageToFile(file);
+            return await compressImageStandard(file);
           }
           return file;
         })

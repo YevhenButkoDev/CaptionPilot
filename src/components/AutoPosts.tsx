@@ -27,6 +27,9 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import { listProjects, type Project } from "../lib/db";
 import { addDraftPost, type DraftPost } from "../lib/db";
 import { addGeneratorTemplate, listGeneratorTemplates, deleteGeneratorTemplate, type GeneratorTemplate } from "../lib/db";
+import { cropImageToFormat } from "../lib/imageProcessing";
+import { saveImageToAppDir, getImageUrlFromAppDir } from "../lib/fs";
+import { compressImageForInstagram, shouldCompress } from "../lib/image";
 
 async function generateCaptionWithOpenAI(prompt: string): Promise<string[] | null> {
   try {
@@ -152,6 +155,7 @@ export default function AutoPosts() {
   const [templateName, setTemplateName] = React.useState("");
   const [generatorMoods, setGeneratorMoods] = React.useState<string>("");
   const [generatorHashtags, setGeneratorHashtags] = React.useState<string>("");
+  const [generatorPostFormat, setGeneratorPostFormat] = React.useState<'1:1' | '4:5' | '16:9'>('1:1');
   const [promptInput, setPromptInput] = React.useState<string>("");
 
   const applyTemplateToForm = React.useCallback((tpl: GeneratorTemplate) => {
@@ -162,6 +166,7 @@ export default function AutoPosts() {
     setIdeasInput((tpl.postIdeas || []).join("\n"));
     setGeneratorMoods((tpl.moods || []).join("\n"));
     setGeneratorHashtags(tpl.hashtags || "");
+    setGeneratorPostFormat(tpl.postFormat || '1:1');
     setPromptInput(tpl.prompt || "");
   }, []);
 
@@ -223,6 +228,35 @@ export default function AutoPosts() {
     }
   };
 
+  // Helper function to get image file from project metadata
+  const getImageFileFromProject = async (imageMeta: { fileName: string; mimeType: string; size: number }): Promise<File | null> => {
+    try {
+      // Get the image URL from the app directory (Tauri approach)
+      const imageUrl = await getImageUrlFromAppDir(imageMeta.fileName);
+      if (!imageUrl) {
+        console.warn(`Image not found in app directory: ${imageMeta.fileName}`);
+        return null;
+      }
+      
+      // Fetch the image as a blob and convert to File
+      const response = await fetch(imageUrl);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch image: ${response.statusText}`);
+      }
+      
+      const blob = await response.blob();
+      const file = new File([blob], imageMeta.fileName, {
+        type: imageMeta.mimeType,
+        lastModified: Date.now()
+      });
+      
+      return file;
+    } catch (error) {
+      console.error('Error loading image from project:', error);
+      return null;
+    }
+  };
+
   const generatePostsFromProject = async (
     project: Project, 
     minImages: number, 
@@ -264,6 +298,31 @@ export default function AutoPosts() {
       imagesForThisPost = Math.min(imagesForThisPost, 6);
 
       const postImages = images.slice(imageIndex, imageIndex + imagesForThisPost);
+      
+      // Crop images to the selected format
+      const croppedImages = await Promise.all(
+        postImages.map(async (imageMeta) => {
+          // Get the actual image file from the project
+          const imageFile = await getImageFileFromProject(imageMeta);
+          if (!imageFile) {
+            throw new Error(`Failed to load image: ${imageMeta.fileName}`);
+          }
+          
+          // Compress with high quality for Instagram if needed
+          let processedFile = imageFile;
+          if (shouldCompress(imageFile)) {
+            processedFile = await compressImageForInstagram(imageFile, generatorPostFormat);
+          }
+          
+          // Crop the image to the selected format
+          const croppedFile = await cropImageToFormat(processedFile, generatorPostFormat);
+          
+          // Save the cropped image to app directory
+          const savedImage = await saveImageToAppDir(croppedFile);
+          
+          return savedImage;
+        })
+      );
 
       const idx = Math.floor(Math.random() * pairs.length);
       const [chosenMood, chosenIdea] = pairs.splice(idx, 1)[0];
@@ -296,9 +355,17 @@ export default function AutoPosts() {
         caption: cleanedCaptions[selectedIndex],
         aiCaptions: cleanedCaptions,
         selectedCaptionIndex: selectedIndex,
-        images: postImages,
+        images: croppedImages,
+        originalFiles: postImages.map(img => ({
+          name: img.fileName,
+          type: img.mimeType,
+          size: img.size,
+          lastModified: Date.now()
+        })),
+        postFormat: generatorPostFormat,
         position: posts.length,
         projectId: project.id,
+        status: 'new',
       };
 
       await addDraftPost(post);
@@ -390,6 +457,44 @@ export default function AutoPosts() {
           />
         </Box>
 
+        {/* Post Format Selector */}
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 'medium' }}>
+            Post Format
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            {(['1:1', '4:5', '16:9'] as const).map((format) => (
+              <Box
+                key={format}
+                onClick={() => setGeneratorPostFormat(format)}
+                sx={{
+                  flex: 1,
+                  p: 2,
+                  border: '2px solid',
+                  borderColor: generatorPostFormat === format ? 'primary.main' : 'divider',
+                  borderRadius: 2,
+                  textAlign: 'center',
+                  cursor: 'pointer',
+                  bgcolor: generatorPostFormat === format ? 'primary.light' : 'transparent',
+                  color: generatorPostFormat === format ? 'primary.contrastText' : 'text.primary',
+                  transition: 'all 0.2s',
+                  '&:hover': {
+                    borderColor: 'primary.main',
+                    bgcolor: generatorPostFormat === format ? 'primary.light' : 'action.hover',
+                  },
+                }}
+              >
+                <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
+                  {format === '1:1' ? 'Square (1:1)' : format === '4:5' ? 'Portrait (4:5)' : 'Landscape (16:9)'}
+                </Typography>
+                <Typography variant="caption" color="inherit" sx={{ opacity: 0.8 }}>
+                  {format === '1:1' ? '1080×1080' : format === '4:5' ? '1080×1350' : '1080×607'}
+                </Typography>
+              </Box>
+            ))}
+          </Box>
+        </Box>
+
         <TextField
           fullWidth
           label="AI Prompt"
@@ -434,7 +539,8 @@ export default function AutoPosts() {
         ) : (
           <List>
             {templates.map((t, idx) => {
-              const secondary = `${t.numPosts} posts • ${t.minImages}-${t.maxImages} images/post`;
+              const formatDisplay = t.postFormat === '1:1' ? 'Square' : t.postFormat === '4:5' ? 'Portrait' : 'Landscape';
+              const secondary = `${t.numPosts} posts • ${t.minImages}-${t.maxImages} images/post • ${formatDisplay}`;
               return (
                 <React.Fragment key={t.id}>
                   <ListItem
@@ -493,6 +599,7 @@ export default function AutoPosts() {
               moods,
               hashtags: generatorHashtags.trim() || undefined,
               numPosts,
+              postFormat: generatorPostFormat,
               createdAt: Date.now(),
             };
             await addGeneratorTemplate(tpl);

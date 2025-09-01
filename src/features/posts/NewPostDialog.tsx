@@ -10,13 +10,15 @@ import Typography from "@mui/material/Typography";
 import CircularProgress from "@mui/material/CircularProgress";
 import { addDraftPost, type DraftPost } from "../../lib/db";
 import { saveImageToAppDir } from "../../lib/fs";
-import { compressImageToFile, shouldCompress } from "../../lib/image";
+import { compressImageForInstagram, shouldCompress } from "../../lib/image";
+import { cropImageToFormat, type PostFormat, getFormatDisplayName, getFormatDimensions } from "../../lib/imageProcessing";
 
 type Props = { open: boolean; onClose: () => void; onSaved?: (postId: string) => void };
 
 export default function NewPostDialog({ open, onClose, onSaved }: Props) {
   const [files, setFiles] = React.useState<File[]>([]);
   const [caption, setCaption] = React.useState("");
+  const [postFormat, setPostFormat] = React.useState<PostFormat>('1:1');
   const [dragOver, setDragOver] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
   const [compressing, setCompressing] = React.useState(false);
@@ -26,6 +28,7 @@ export default function NewPostDialog({ open, onClose, onSaved }: Props) {
     if (!open) {
       setFiles([]);
       setCaption("");
+      setPostFormat('1:1');
       setDragOver(false);
       setSaving(false);
       setCompressing(false);
@@ -44,13 +47,20 @@ export default function NewPostDialog({ open, onClose, onSaved }: Props) {
     try {
       // Tauri app-dir: no directory picker/permissions required
 
-      // Compress images before saving
-      const compressedImages = await Promise.all(
+      // Compress and crop images before saving
+      const processedImages = await Promise.all(
         files.map(async (file) => {
+          let processedFile = file;
+          
+          // Compress with high quality for Instagram if needed
           if (shouldCompress(file)) {
-            return await compressImageToFile(file);
+            processedFile = await compressImageForInstagram(file, postFormat);
           }
-          return file;
+          
+          // Crop to selected format
+          processedFile = await cropImageToFormat(processedFile, postFormat);
+          
+          return processedFile;
         })
       );
 
@@ -59,7 +69,7 @@ export default function NewPostDialog({ open, onClose, onSaved }: Props) {
       const savedImages = [] as DraftPost["images"];
       const originalFiles: DraftPost["originalFiles"] = [];
       
-      for (const f of compressedImages) {
+      for (const f of processedImages) {
         const meta = await saveImageToAppDir(f);
         savedImages.push(meta);
         
@@ -81,6 +91,7 @@ export default function NewPostDialog({ open, onClose, onSaved }: Props) {
         caption,
         images: savedImages,
         originalFiles,
+        postFormat,
         position: nextPos,
         status: 'new',
       };
@@ -159,6 +170,49 @@ export default function NewPostDialog({ open, onClose, onSaved }: Props) {
                 )}
               </Box>
             ))}
+          </Box>
+        )}
+        
+        {/* Post Format Selector */}
+        {files.length > 0 && (
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 'medium' }}>
+              Post Format
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              {(['1:1', '4:5', '16:9'] as PostFormat[]).map((format) => (
+                <Box
+                  key={format}
+                  onClick={() => setPostFormat(format)}
+                  sx={{
+                    flex: 1,
+                    p: 2,
+                    border: '2px solid',
+                    borderColor: postFormat === format ? 'primary.main' : 'divider',
+                    borderRadius: 2,
+                    textAlign: 'center',
+                    cursor: 'pointer',
+                    bgcolor: postFormat === format ? 'primary.light' : 'transparent',
+                    color: postFormat === format ? 'primary.contrastText' : 'text.primary',
+                    transition: 'all 0.2s',
+                    '&:hover': {
+                      borderColor: 'primary.main',
+                      bgcolor: postFormat === format ? 'primary.light' : 'action.hover',
+                    },
+                  }}
+                >
+                  <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
+                    {getFormatDisplayName(format)}
+                  </Typography>
+                  <Typography variant="caption" color="inherit" sx={{ opacity: 0.8 }}>
+                    {getFormatDimensions(format)}
+                  </Typography>
+                </Box>
+              ))}
+            </Box>
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+              Images will be cropped to fit the selected format from the center
+            </Typography>
           </Box>
         )}
         <TextField

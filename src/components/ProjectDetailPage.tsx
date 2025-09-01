@@ -3,7 +3,7 @@ import { Box, Typography, IconButton, ImageList, ImageListItem, Alert, Button, D
 import { ArrowBack, Add, Remove } from "@mui/icons-material";
 import { getProject, updateProject, type Project } from "../lib/db";
 import { getImageUrlFromAppDir, saveImageToAppDir } from "../lib/fs";
-import { compressImageToFile, shouldCompress } from "../lib/image";
+import { compressImageStandard, shouldCompress } from "../lib/image";
 import {confirm} from "@tauri-apps/plugin-dialog";
 
 function renderMarkdownToHtml(src: string): string {
@@ -81,7 +81,7 @@ export default function ProjectDetailPage({ projectId, onBack }: ProjectDetailPa
     if (newFiles.length === 0) return;
     setSaving(true); setCompressing(true);
     try {
-      const compressedImages = await Promise.all(newFiles.map(async (file) => shouldCompress(file) ? await compressImageToFile(file) : file));
+      const compressedImages = await Promise.all(newFiles.map(async (file) => shouldCompress(file) ? await compressImageStandard(file) : file));
       setCompressing(false);
       const savedImages: Project["images"] = [];
       for (const f of compressedImages) { const meta = await saveImageToAppDir(f); savedImages.push(meta); }

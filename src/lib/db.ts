@@ -16,6 +16,7 @@ export type DraftPost = {
   position?: number; // lower comes first; fallback to createdAt desc if missing
   status?: 'new' | 'published' | 'scheduled';
   platform?: 'instagram' | 'pinterest'; // default to instagram for backward compatibility
+  postFormat: '1:1' | '4:5' | '16:9';
 };
 
 export type PinterestPost = {
@@ -29,6 +30,7 @@ export type PinterestPost = {
   websiteUrl?: string; // Pinterest-specific website URL
   position?: number; // lower comes first; fallback to createdAt desc if missing
   status?: 'new' | 'published' | 'scheduled';
+  postFormat: '1:1' | '4:5' | '16:9';
 };
 
 export type Project = {
@@ -77,11 +79,12 @@ export type GeneratorTemplate = {
   moods?: string[];
   hashtags?: string;
   numPosts: number;
+  postFormat: '1:1' | '4:5' | '16:9';
   createdAt: number;
 };
 
 const DB_NAME = "inst-automation";
-const DB_VERSION = 8; // Increment version for new stores
+const DB_VERSION = 10; // Increment version for new stores
 const STORE_KV = "kv";
 const STORE_POSTS = "draftPosts";
 const STORE_PINTEREST_POSTS = "pinterestPosts";
@@ -146,23 +149,8 @@ async function getFromKv<T>(key: string): Promise<T | null> {
   });
 }
 
-async function setInKv<T>(key: string, value: T): Promise<void> {
-  const db = await openDb();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_KV, "readwrite");
-    const store = tx.objectStore(STORE_KV);
-    const req = store.put({ key, value });
-    req.onsuccess = () => resolve();
-    req.onerror = () => reject(req.error);
-  });
-}
-
 export async function getLibraryHandle(): Promise<FileSystemDirectoryHandle | null> {
   return getFromKv<FileSystemDirectoryHandle>("libraryDir");
-}
-
-export async function setLibraryHandle(handle: FileSystemDirectoryHandle): Promise<void> {
-  return setInKv<FileSystemDirectoryHandle>("libraryDir", handle);
 }
 
 export async function addDraftPost(post: DraftPost): Promise<void> {

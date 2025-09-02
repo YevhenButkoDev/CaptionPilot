@@ -5,6 +5,7 @@ import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 
 import AddPinterestPostFab from "../features/posts/AddPinterestPostFab";
 import PinterestPostDetailModal from "../features/posts/PinterestPostDetailModal";
+import LazyImage from "./LazyImage";
 import { listPinterestPosts, deletePinterestPost, type PinterestPost } from "../lib/db";
 import { listSchedules } from "../lib/db";
 import { getImageUrlFromAppDir, deleteImageFromAppDir } from "../lib/fs";
@@ -198,14 +199,11 @@ function PinterestTile({
             }}
         >
             {/* Clickable image */}
-            <Box
-                component="img"
+            <LazyImage
                 src={src}
                 alt="Pinterest post"
+                onClick={onClick}
                 sx={{
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "cover",
                     display: "block",
                     cursor: "pointer",
                     "&:hover": {
@@ -213,7 +211,6 @@ function PinterestTile({
                         transition: "opacity 0.2s",
                     },
                 }}
-                onClick={onClick}
             />
             
             {showScheduledBadge && (

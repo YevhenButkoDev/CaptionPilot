@@ -19,6 +19,7 @@ import { CSS } from "@dnd-kit/utilities";
 import AddPostFab from "../features/posts/AddPostFab";
 import PostDetailModal from "../features/posts/PostDetailModal";
 import ScheduleButton from "./ScheduleButton";
+import LazyImage from "./LazyImage";
 import { listDraftPosts, updateDraftPositions, deleteDraftPost, type DraftPost } from "../lib/db";
 import { listSchedules } from "../lib/db";
 import { getImageUrlFromAppDir, deleteImageFromAppDir } from "../lib/fs";
@@ -253,19 +254,12 @@ function SortableTile({
             {...listeners}
             sx={{ userSelect: "none", touchAction: "none", position: 'relative' }}
         >
-            <Box
-                component="img"
+            <LazyImage
                 src={src}
                 alt=""
-                loading="lazy"
-                draggable={false}
-                onDragStart={(e) => e.preventDefault()}
                 onClick={onClick}
                 sx={{ 
                     display: "block", 
-                    width: "100%", 
-                    height: "100%", 
-                    objectFit: "cover",
                     cursor: "pointer",
                     "&:hover": {
                         opacity: 0.9,

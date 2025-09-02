@@ -5,6 +5,7 @@ import { getProject, updateProject, type Project } from "../lib/db";
 import { getImageUrlFromAppDir, saveImageToAppDir } from "../lib/fs";
 import { compressImageStandard, shouldCompress } from "../lib/image";
 import {confirm} from "@tauri-apps/plugin-dialog";
+import LazyImage from "./LazyImage";
 
 function renderMarkdownToHtml(src: string): string {
   let html = src.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -133,7 +134,19 @@ export default function ProjectDetailPage({ projectId, onBack }: ProjectDetailPa
         <ImageList cols={3} rowHeight={300} gap={8} sx={{ width: "100%", overflow: "visible" }}>
           {imageUrls.map((url, index) => (
             <ImageListItem key={index} sx={{ position: "relative" }}>
-              <Box component="img" src={url} alt={`Project image ${index + 1}`} sx={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 1, cursor: "pointer", "&:hover": { opacity: 0.9, transition: "opacity 0.2s" } }} onClick={() => { window.open(url, '_blank'); }} />
+              <LazyImage 
+                src={url} 
+                alt={`Project image ${index + 1}`} 
+                sx={{ 
+                  borderRadius: 1, 
+                  cursor: "pointer", 
+                  "&:hover": { 
+                    opacity: 0.9, 
+                    transition: "opacity 0.2s" 
+                  } 
+                }} 
+                onClick={() => { window.open(url, '_blank'); }} 
+              />
               <IconButton onClick={(e) => { e.stopPropagation(); handleRemoveImage(index); }} sx={{ position: "absolute", top: 8, right: 8, bgcolor: "error.main", color: "white", "&:hover": { bgcolor: "error.dark" }, width: 32, height: 32 }} size="small"><Remove /></IconButton>
             </ImageListItem>
           ))}
@@ -155,7 +168,12 @@ export default function ProjectDetailPage({ projectId, onBack }: ProjectDetailPa
             <Box sx={{ mt: 2, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1 }}>
               {newFiles.map((file, idx) => (
                 <Box key={`${file.name}-${idx}`} sx={{ position: 'relative', width: '100%', pt: '100%', borderRadius: 1, overflow: 'hidden', bgcolor: 'background.default' }}>
-                  <Box component="img" alt={file.name} src={URL.createObjectURL(file)} sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} onLoad={(e) => URL.revokeObjectURL((e.currentTarget as HTMLImageElement).src)} />
+                  <LazyImage 
+                    alt={file.name} 
+                    src={URL.createObjectURL(file)} 
+                    sx={{ position: 'absolute', inset: 0 }} 
+                    onLoad={(e) => URL.revokeObjectURL((e.currentTarget as HTMLImageElement).src)} 
+                  />
                   {shouldCompress(file) && (
                     <Box sx={{ position: 'absolute', top: 4, right: 4, bgcolor: 'warning.main', color: 'warning.contrastText', px: 1, py: 0.5, borderRadius: 1, fontSize: '0.75rem', fontWeight: 'bold' }}>Will compress</Box>
                   )}

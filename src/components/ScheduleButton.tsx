@@ -25,7 +25,7 @@ interface ScheduleButtonProps {
 
 export default function ScheduleButton({ type }: ScheduleButtonProps) {
   const [isExpanded, setIsExpanded] = React.useState(false);
-  const [postsPerWeek, setPostsPerWeek] = React.useState(7);
+  const [hoursBetweenPosts, setHoursBetweenPosts] = React.useState(24); // Default 24 hours
   const [schedule, setSchedule] = React.useState<Schedule | null>(null);
   const [loading, setLoading] = React.useState(false);
 
@@ -38,7 +38,9 @@ export default function ScheduleButton({ type }: ScheduleButtonProps) {
       const existingSchedule = await getScheduleConfigByType(type);
       if (existingSchedule) {
         setSchedule(existingSchedule);
-        setPostsPerWeek(existingSchedule.amountOfPostsPerWeek);
+        // Use hoursBetweenPosts if available, otherwise convert from posts per week
+        const hours = existingSchedule.hoursBetweenPosts || Math.round(168 / existingSchedule.amountOfPostsPerWeek);
+        setHoursBetweenPosts(hours);
       }
     } catch (error) {
       console.error('Error loading schedule:', error);
@@ -49,7 +51,13 @@ export default function ScheduleButton({ type }: ScheduleButtonProps) {
     setLoading(true);
     try {
       if (schedule) {
-        const updatedSchedule: Schedule = { ...schedule, status: "in_process", updatedAt: Date.now() };
+        const updatedSchedule: Schedule = { 
+          ...schedule, 
+          status: "in_process", 
+          isActive: true,
+          hoursBetweenPosts,
+          updatedAt: Date.now() 
+        };
         await updateScheduleConfig(updatedSchedule);
         setSchedule(updatedSchedule);
       } else {
@@ -57,7 +65,9 @@ export default function ScheduleButton({ type }: ScheduleButtonProps) {
           id: crypto.randomUUID(),
           type,
           status: 'in_process',
-          amountOfPostsPerWeek: postsPerWeek,
+          isActive: true,
+          amountOfPostsPerWeek: Math.round(168 / hoursBetweenPosts), // Convert to posts per week for backward compatibility
+          hoursBetweenPosts,
           createdAt: Date.now(),
           updatedAt: Date.now()
         };
@@ -75,7 +85,12 @@ export default function ScheduleButton({ type }: ScheduleButtonProps) {
     if (!schedule) return;
     setLoading(true);
     try {
-      const updatedSchedule: Schedule = { ...schedule, status: 'paused', updatedAt: Date.now() };
+      const updatedSchedule: Schedule = { 
+        ...schedule, 
+        status: 'paused', 
+        isActive: false,
+        updatedAt: Date.now() 
+      };
       await updateScheduleConfig(updatedSchedule);
       setSchedule(updatedSchedule);
     } catch (error) {
@@ -89,7 +104,12 @@ export default function ScheduleButton({ type }: ScheduleButtonProps) {
     if (!schedule) return;
     setLoading(true);
     try {
-      const updatedSchedule = { ...schedule, amountOfPostsPerWeek: postsPerWeek, updatedAt: Date.now() };
+      const updatedSchedule = { 
+        ...schedule, 
+        hoursBetweenPosts,
+        amountOfPostsPerWeek: Math.round(168 / hoursBetweenPosts), // Convert to posts per week for backward compatibility
+        updatedAt: Date.now() 
+      };
       await updateScheduleConfig(updatedSchedule);
       setSchedule(updatedSchedule);
     } catch (error) {
@@ -100,9 +120,9 @@ export default function ScheduleButton({ type }: ScheduleButtonProps) {
   };
 
   const handleIncrement = () => {
-    if (postsPerWeek < 100) {
-      const newValue = postsPerWeek + 1;
-      setPostsPerWeek(newValue);
+    if (hoursBetweenPosts < 168) { // Max 1 week
+      const newValue = hoursBetweenPosts + 1;
+      setHoursBetweenPosts(newValue);
       if (schedule) {
         handleSave();
       }
@@ -110,9 +130,9 @@ export default function ScheduleButton({ type }: ScheduleButtonProps) {
   };
 
   const handleDecrement = () => {
-    if (postsPerWeek > 1) {
-      const newValue = postsPerWeek - 1;
-      setPostsPerWeek(newValue);
+    if (hoursBetweenPosts > 1) {
+      const newValue = hoursBetweenPosts - 1;
+      setHoursBetweenPosts(newValue);
       if (schedule) {
         handleSave();
       }
@@ -123,7 +143,7 @@ export default function ScheduleButton({ type }: ScheduleButtonProps) {
     setIsExpanded(false);
   };
 
-  const isActive = schedule?.status === 'in_process';
+  const isActive = schedule?.isActive === true;
 
   return (
     <Box sx={{ position: 'fixed', bottom: 80, right: 16, zIndex: 1000 }}>
@@ -198,7 +218,7 @@ export default function ScheduleButton({ type }: ScheduleButtonProps) {
             <Box sx={{ display: 'flex', alignItems: 'center' }}>
               <IconButton
                 onClick={handleDecrement}
-                disabled={postsPerWeek <= 1}
+                disabled={hoursBetweenPosts <= 1}
                 sx={{
                   bgcolor: 'rgba(255, 255, 255, 0.08)',
                   color: '#fff',
@@ -222,12 +242,12 @@ export default function ScheduleButton({ type }: ScheduleButtonProps) {
                   fontWeight: 'bold'
                 }}
               >
-                {postsPerWeek}
+                {hoursBetweenPosts}h
               </Typography>
               
               <IconButton
                 onClick={handleIncrement}
-                disabled={postsPerWeek >= 100}
+                disabled={hoursBetweenPosts >= 168}
                 sx={{
                   bgcolor: 'rgba(255, 255, 255, 0.08)',
                   color: '#fff',

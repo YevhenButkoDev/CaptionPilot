@@ -63,7 +63,10 @@ export type Schedule = {
   id: string;
   type: 'instagram' | 'pinterest';
   status: 'in_process' | 'paused' | 'stopped';
-  amountOfPostsPerWeek: number;
+  amountOfPostsPerWeek: number; // Keep for backward compatibility
+  hoursBetweenPosts: number; // New field for hours between posts
+  isActive: boolean; // New field to indicate if schedule is currently active
+  lastPublishedAt?: number; // Track when last post was published
   createdAt: number;
   updatedAt: number;
 };

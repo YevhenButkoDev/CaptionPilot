@@ -271,7 +271,7 @@ export default function PostDetailModal({ post, open, onClose, onDelete, onPostU
         </Box>
 
         {/* Right side - Caption and actions */}
-        <Box sx={{ width: "500px", p: 3, display: "flex", flexDirection: "column", borderLeft: "1px solid #dbdbdb", minWidth: 0 }}>
+        <Box sx={{ width: "500px", p: 3, display: "flex", flexDirection: "column", minWidth: 0 }}>
           <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2, flexShrink: 0 }}>
             <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
               <Typography variant="h6" sx={{ fontWeight: "bold" }}>Post Details</Typography>

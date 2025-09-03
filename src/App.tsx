@@ -7,6 +7,8 @@ import ProjectDetailPage from "./components/ProjectDetailPage.tsx";
 import Settings from "./components/Settings.tsx";
 import Dashboard from "./components/Dashboard.tsx";
 import * as React from "react";
+// Import scheduler to initialize it
+import "./lib/scheduler";
 
 function App() {
   const [section, setSection] = React.useState<SectionKey>("dashboard");

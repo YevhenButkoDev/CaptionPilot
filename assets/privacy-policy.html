@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy Policy - CaptionPilot</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0f0f0f 0%, #1a1a1a 100%);
+            color: #ffffff;
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        /* Animated background */
+        .bg-animation {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            background: 
+                radial-gradient(circle at 20% 80%, rgba(196, 73, 73, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(196, 73, 73, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 40% 40%, rgba(196, 73, 73, 0.05) 0%, transparent 50%);
+        }
+
+        /* Floating particles */
+        .particles {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+        }
+
+        .particle {
+            position: absolute;
+            width: 2px;
+            height: 2px;
+            background: rgba(196, 73, 73, 0.3);
+            border-radius: 50%;
+            animation: float 6s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(0deg); opacity: 0; }
+            50% { transform: translateY(-100px) rotate(180deg); opacity: 1; }
+        }
+
+        /* Header */
+        .header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            background: rgba(15, 15, 15, 0.95);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid #2a2a2a;
+            padding: 1rem 0;
+        }
+
+        .nav {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 2rem;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #FF7A59, #FF3D77, #9B5CFF, #2DD2FF);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 18px;
+        }
+
+        .logo-text {
+            font-size: 1.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #FF7A59, #FF3D77, #9B5CFF, #2DD2FF);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+        }
+
+        .nav-links a {
+            color: #dddddd;
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+
+        .nav-links a:hover {
+            color: #c44949;
+        }
+
+        /* Main content */
+        .main-content {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 8rem 2rem 4rem;
+            position: relative;
+            z-index: 10;
+        }
+
+        .page-header {
+            text-align: center;
+            margin-bottom: 4rem;
+        }
+
+        .page-title {
+            font-size: clamp(2.5rem, 6vw, 4rem);
+            font-weight: 800;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, #ffffff, #c44949, #FF7A59);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            line-height: 1.1;
+        }
+
+        .page-subtitle {
+            font-size: 1.2rem;
+            color: #aaaaaa;
+            margin-bottom: 1rem;
+        }
+
+        .last-updated {
+            color: #888888;
+            font-size: 0.9rem;
+        }
+
+        /* Content styling */
+        .content {
+            background: rgba(26, 26, 26, 0.8);
+            border: 1px solid #2a2a2a;
+            border-radius: 16px;
+            padding: 3rem;
+            backdrop-filter: blur(10px);
+            margin-bottom: 2rem;
+        }
+
+        .content h2 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #c44949;
+            margin: 2.5rem 0 1.5rem 0;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid #2a2a2a;
+        }
+
+        .content h2:first-child {
+            margin-top: 0;
+        }
+
+        .content h3 {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: #ffffff;
+            margin: 2rem 0 1rem 0;
+        }
+
+        .content p {
+            margin-bottom: 1.5rem;
+            color: #dddddd;
+            line-height: 1.7;
+        }
+
+        .content ul, .content ol {
+            margin: 1.5rem 0;
+            padding-left: 2rem;
+        }
+
+        .content li {
+            margin-bottom: 0.8rem;
+            color: #dddddd;
+        }
+
+        .content strong {
+            color: #ffffff;
+            font-weight: 600;
+        }
+
+        .content a {
+            color: #c44949;
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+
+        .content a:hover {
+            color: #c13232;
+            text-decoration: underline;
+        }
+
+        .highlight-box {
+            background: rgba(196, 73, 73, 0.1);
+            border: 1px solid rgba(196, 73, 73, 0.3);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 2rem 0;
+        }
+
+        .highlight-box h4 {
+            color: #c44949;
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+
+        .contact-info {
+            background: rgba(26, 26, 26, 0.6);
+            border: 1px solid #2a2a2a;
+            border-radius: 12px;
+            padding: 2rem;
+            margin-top: 3rem;
+            text-align: center;
+        }
+
+        .contact-info h3 {
+            color: #c44949;
+            margin-bottom: 1rem;
+        }
+
+        .contact-info p {
+            margin-bottom: 0.5rem;
+        }
+
+        /* Footer */
+        .footer {
+            background: #0f0f0f;
+            border-top: 1px solid #2a2a2a;
+            padding: 3rem 2rem 2rem;
+            text-align: center;
+            margin-top: 4rem;
+        }
+
+        .footer-content {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .footer-logo {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .footer-text {
+            color: #aaaaaa;
+            margin-bottom: 1rem;
+        }
+
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        .footer-links a {
+            color: #aaaaaa;
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+
+        .footer-links a:hover {
+            color: #c44949;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .nav {
+                padding: 0 1rem;
+            }
+
+            .nav-links {
+                display: none;
+            }
+
+            .main-content {
+                padding: 6rem 1rem 2rem;
+            }
+
+            .content {
+                padding: 2rem;
+            }
+
+            .page-title {
+                font-size: 2rem;
+            }
+
+            .content h2 {
+                font-size: 1.5rem;
+            }
+
+            .footer-links {
+                flex-direction: column;
+                gap: 1rem;
+            }
+        }
+
+        /* Animations */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .fade-in-up {
+            animation: fadeInUp 0.8s ease-out;
+        }
+
+        .fade-in-up-delay-1 {
+            animation: fadeInUp 0.8s ease-out 0.2s both;
+        }
+
+        .fade-in-up-delay-2 {
+            animation: fadeInUp 0.8s ease-out 0.4s both;
+        }
+    </style>
+</head>
+<body>
+    <!-- Animated background -->
+    <div class="bg-animation"></div>
+    
+    <!-- Floating particles -->
+    <div class="particles" id="particles"></div>
+
+    <!-- Header -->
+    <header class="header">
+        <nav class="nav">
+            <a href="banner.html" class="logo">
+                <img src="./128x128.png" alt="CaptionPilot logo" class="logo-icon" />
+                <span class="logo-text">CaptionPilot</span>
+            </a>
+            <ul class="nav-links">
+                <li><a href="banner.html">Home</a></li>
+                <li><a href="banner.html#features">Features</a></li>
+                <li><a href="#contact">Contact</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <!-- Main content -->
+    <main class="main-content">
+        <div class="page-header fade-in-up">
+            <h1 class="page-title">Privacy Policy</h1>
+            <p class="page-subtitle">Your privacy is important to us</p>
+            <p class="last-updated">Last updated: September 2025</p>
+        </div>
+
+        <div class="content fade-in-up-delay-1">
+            <h2>Introduction</h2>
+            <p>
+                <strong>CaptionPilot</strong> ("we", "us", or "our") is committed to protecting your privacy and personal information.
+                This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our 
+                AI-powered social media automation application.
+            </p>
+
+            <div class="highlight-box">
+                <h4>Quick Summary</h4>
+                <p>
+                    We only collect the data necessary to provide our services. We don't sell your data, and we use industry-standard 
+                    security measures to protect your information. You have full control over your data and can request deletion at any time.
+                </p>
+            </div>
+
+            <h2>Information We Collect</h2>
+            
+            <h3>1. Account Information</h3>
+            <ul>
+                <li>Instagram and Pinterest account metadata (User IDs, connected Page IDs)</li>
+                <li>Account access tokens (stored securely and rotated according to platform policies)</li>
+                <li>Profile information necessary for content publishing</li>
+            </ul>
+
+            <h3>2. Content Data</h3>
+            <ul>
+                <li>Images and media files you upload for processing and publishing</li>
+                <li>Captions, descriptions, and text content you create or generate</li>
+                <li>Project organization data and content categorization</li>
+                <li>Post scheduling preferences and timing data</li>
+            </ul>
+
+            <h3>3. Usage Data</h3>
+            <ul>
+                <li>Application usage patterns and feature interactions</li>
+                <li>Performance metrics and analytics data</li>
+                <li>Error logs and technical diagnostics</li>
+                <li>Device information and application version data</li>
+            </ul>
+
+            <h3>4. AI Processing Data</h3>
+            <ul>
+                <li>Content analysis data for AI caption generation</li>
+                <li>Image processing parameters and optimization settings</li>
+                <li>Brand voice and tone preferences for content generation</li>
+            </ul>
+
+            <h2>How We Use Your Information</h2>
+            
+            <h3>Primary Uses</h3>
+            <ul>
+                <li><strong>Content Publishing:</strong> Create and publish posts/reels on your behalf via Instagram and Pinterest APIs</li>
+                <li><strong>AI Services:</strong> Generate captions, optimize content, and provide intelligent automation features</li>
+                <li><strong>Content Management:</strong> Organize, store, and manage your media assets and projects</li>
+                <li><strong>Scheduling:</strong> Automate post scheduling and timing optimization</li>
+            </ul>
+
+            <h3>Service Improvement</h3>
+            <ul>
+                <li>Analyze usage patterns to improve our AI algorithms and features</li>
+                <li>Optimize application performance and user experience</li>
+                <li>Develop new features and capabilities</li>
+                <li>Provide technical support and troubleshooting</li>
+            </ul>
+
+            <h2>Data Sharing and Disclosure</h2>
+            
+            <h3>We Do NOT Sell Your Data</h3>
+            <p>
+                We do not sell, trade, or rent your personal information to third parties. Your data remains private and is only 
+                used to provide our services.
+            </p>
+
+            <h3>Limited Sharing</h3>
+            <p>We may share your information only in these specific circumstances:</p>
+            <ul>
+                <li><strong>Platform APIs:</strong> With Instagram and Pinterest APIs as necessary for content publishing</li>
+                <li><strong>Service Providers:</strong> With trusted third-party services for cloud hosting, analytics, and technical infrastructure</li>
+                <li><strong>Legal Requirements:</strong> When required by law, court order, or to protect our rights and safety</li>
+                <li><strong>Business Transfers:</strong> In the event of a merger, acquisition, or sale of assets (with notice)</li>
+            </ul>
+
+            <h2>Data Security</h2>
+            
+            <h3>Security Measures</h3>
+            <ul>
+                <li><strong>Encryption:</strong> All data is encrypted in transit and at rest using industry-standard protocols</li>
+                <li><strong>Access Controls:</strong> Strict access controls and authentication for all data access</li>
+                <li><strong>Token Management:</strong> Access tokens are securely stored and automatically rotated per platform policies</li>
+                <li><strong>Regular Audits:</strong> Regular security audits and vulnerability assessments</li>
+                <li><strong>Infrastructure Security:</strong> Secure cloud infrastructure with enterprise-grade protection</li>
+            </ul>
+
+            <div class="highlight-box">
+                <h4>Data Breach Response</h4>
+                <p>
+                    In the unlikely event of a data breach, we will notify affected users within 72 hours and take immediate 
+                    action to secure the system and prevent further unauthorized access.
+                </p>
+            </div>
+
+            <h2>Data Retention</h2>
+            
+            <h3>Retention Periods</h3>
+            <ul>
+                <li><strong>Account Data:</strong> Retained while your account is active and for 30 days after deletion</li>
+                <li><strong>Content Data:</strong> Retained until you delete it or close your account</li>
+                <li><strong>Usage Analytics:</strong> Aggregated and anonymized data may be retained for service improvement</li>
+                <li><strong>Legal Requirements:</strong> Some data may be retained longer if required by law</li>
+            </ul>
+
+            <h3>Data Deletion</h3>
+            <p>
+                You can request deletion of your data at any time. We will permanently delete your personal information 
+                within 30 days of your request, except where retention is required by law.
+            </p>
+
+            <h2>Your Rights and Choices</h2>
+            
+            <h3>Access and Control</h3>
+            <ul>
+                <li><strong>Access:</strong> Request a copy of all personal data we hold about you</li>
+                <li><strong>Correction:</strong> Update or correct inaccurate personal information</li>
+                <li><strong>Deletion:</strong> Request deletion of your personal data</li>
+                <li><strong>Portability:</strong> Export your data in a machine-readable format</li>
+                <li><strong>Restriction:</strong> Limit how we process your personal data</li>
+            </ul>
+
+            <h3>Account Controls</h3>
+            <ul>
+                <li>Disconnect social media accounts at any time</li>
+                <li>Modify or delete scheduled posts</li>
+                <li>Control AI processing preferences</li>
+                <li>Manage notification settings</li>
+            </ul>
+
+            <h2>Third-Party Services</h2>
+            
+            <h3>Platform Integrations</h3>
+            <p>
+                Our application integrates with Instagram and Pinterest APIs. These platforms have their own privacy policies 
+                and data practices. We encourage you to review their privacy policies:
+            </p>
+            <ul>
+                <li><a href="https://help.instagram.com/519522125107875" target="_blank">Instagram Privacy Policy</a></li>
+                <li><a href="https://policy.pinterest.com/en/privacy-policy" target="_blank">Pinterest Privacy Policy</a></li>
+            </ul>
+
+            <h3>Third-Party Analytics</h3>
+            <p>
+                We may use third-party analytics services to understand how our application is used. These services collect 
+                anonymized usage data and are bound by their own privacy policies.
+            </p>
+
+            <h2>International Data Transfers</h2>
+            <p>
+                Your data may be processed and stored in countries other than your own. We ensure that any international 
+                transfers comply with applicable data protection laws and use appropriate safeguards to protect your information.
+            </p>
+
+            <h2>Children's Privacy</h2>
+            <p>
+                Our service is not intended for children under 13 years of age. We do not knowingly collect personal 
+                information from children under 13. If you are a parent or guardian and believe your child has provided 
+                us with personal information, please contact us immediately.
+            </p>
+
+            <h2>Changes to This Privacy Policy</h2>
+            <p>
+                We may update this Privacy Policy from time to time. We will notify you of any material changes by:
+            </p>
+            <ul>
+                <li>Posting the updated policy on our website</li>
+                <li>Sending you an email notification</li>
+                <li>Displaying a notice in the application</li>
+            </ul>
+            <p>
+                Your continued use of our service after any changes constitutes acceptance of the updated Privacy Policy.
+            </p>
+
+            <div class="contact-info">
+                <h3>Contact Us</h3>
+                <p>If you have any questions about this Privacy Policy or our data practices, please contact us:</p>
+                <p><strong>Email:</strong> yevhenbutko@gmail.com</p>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer" id="contact">
+        <div class="footer-content">
+            <div class="footer-logo">
+                <img src="./128x128.png" alt="CaptionPilot logo" class="logo-icon" />
+                <span class="logo-text">CaptionPilot</span>
+            </div>
+            <p class="footer-text">
+                Revolutionizing social media management with AI-powered automation
+            </p>
+            <div class="footer-links">
+                <a href="banner.html">Home</a>
+                <a href="banner.html#features">Features</a>
+                <a href="privacy-policy.html">Privacy Policy</a>
+                <a href="terms-of-service.html">Terms of Service</a>
+                <a href="mailto:support@instautomation.com">Support</a>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Create floating particles
+        function createParticles() {
+            const particlesContainer = document.getElementById('particles');
+            const particleCount = 30;
+            
+            for (let i = 0; i < particleCount; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                particle.style.left = Math.random() * 100 + '%';
+                particle.style.animationDelay = Math.random() * 6 + 's';
+                particle.style.animationDuration = (Math.random() * 3 + 3) + 's';
+                particlesContainer.appendChild(particle);
+            }
+        }
+
+        // Smooth scrolling for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+
+        // Initialize particles on load
+        window.addEventListener('load', createParticles);
+
+        // Add scroll effect to header
+        window.addEventListener('scroll', () => {
+            const header = document.querySelector('.header');
+            if (window.scrollY > 100) {
+                header.style.background = 'rgba(15, 15, 15, 0.98)';
+            } else {
+                header.style.background = 'rgba(15, 15, 15, 0.95)';
+            }
+        });
+
+        // Intersection Observer for animations
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.opacity = '1';
+                    entry.target.style.transform = 'translateY(0)';
+                }
+            });
+        }, observerOptions);
+
+        // Observe content sections
+        document.querySelectorAll('.content h2, .content h3, .highlight-box').forEach(element => {
+            element.style.opacity = '0';
+            element.style.transform = 'translateY(20px)';
+            element.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+            observer.observe(element);
+        });
+    </script>
+</body>
+</html>

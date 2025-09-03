@@ -3,7 +3,7 @@ import { Box, Typography, IconButton, ImageList, ImageListItem, Alert, Button, D
 import { ArrowBack, Add, Remove } from "@mui/icons-material";
 import { getProject, updateProject, type Project } from "../lib/db";
 import { getImageUrlFromAppDir, saveImageToAppDir } from "../lib/fs";
-import { compressImageStandard, shouldCompress } from "../lib/image";
+// Removed image compression imports - images are saved as-is for projects
 import {confirm} from "@tauri-apps/plugin-dialog";
 import LazyImage from "./LazyImage";
 
@@ -29,7 +29,7 @@ export default function ProjectDetailPage({ projectId, onBack }: ProjectDetailPa
   const [newFiles, setNewFiles] = React.useState<File[]>([]);
   const [dragOver, setDragOver] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
-  const [compressing, setCompressing] = React.useState(false);
+  // Removed compressing state - no compression for project images
   const inputRef = React.useRef<HTMLInputElement | null>(null);
 
   React.useEffect(() => { loadProject(); }, [projectId]);
@@ -80,12 +80,11 @@ export default function ProjectDetailPage({ projectId, onBack }: ProjectDetailPa
 
   const handleAddImages = async () => {
     if (newFiles.length === 0) return;
-    setSaving(true); setCompressing(true);
+    setSaving(true);
     try {
-      const compressedImages = await Promise.all(newFiles.map(async (file) => shouldCompress(file) ? await compressImageStandard(file) : file));
-      setCompressing(false);
+      // Save images as-is without compression for projects
       const savedImages: Project["images"] = [];
-      for (const f of compressedImages) { const meta = await saveImageToAppDir(f); savedImages.push(meta); }
+      for (const f of newFiles) { const meta = await saveImageToAppDir(f); savedImages.push(meta); }
       if (project) {
         const updatedProject: Project = { ...project, images: [...project.images, ...savedImages] };
         await updateProject(updatedProject);
@@ -95,7 +94,7 @@ export default function ProjectDetailPage({ projectId, onBack }: ProjectDetailPa
       }
       setAddImagesOpen(false); setNewFiles([]);
     } catch (e) { console.error("Failed to add images:", e); }
-    finally { setSaving(false); setCompressing(false); }
+    finally { setSaving(false); }
   };
 
   if (loading) return (<Box sx={{ p: 3, textAlign: "center" }}><Typography>Loading project...</Typography></Box>);
@@ -174,9 +173,7 @@ export default function ProjectDetailPage({ projectId, onBack }: ProjectDetailPa
                     sx={{ position: 'absolute', inset: 0 }} 
                     onLoad={(e) => URL.revokeObjectURL((e.currentTarget as HTMLImageElement).src)} 
                   />
-                  {shouldCompress(file) && (
-                    <Box sx={{ position: 'absolute', top: 4, right: 4, bgcolor: 'warning.main', color: 'warning.contrastText', px: 1, py: 0.5, borderRadius: 1, fontSize: '0.75rem', fontWeight: 'bold' }}>Will compress</Box>
-                  )}
+                  {/* No compression indicator for project images */}
                 </Box>
               ))}
             </Box>
@@ -184,7 +181,7 @@ export default function ProjectDetailPage({ projectId, onBack }: ProjectDetailPa
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setAddImagesOpen(false)} disabled={saving}>Cancel</Button>
-          <Button onClick={handleAddImages} disabled={saving || newFiles.length === 0} variant="contained">{compressing ? 'Compressing...' : 'Add Images'}</Button>
+          <Button onClick={handleAddImages} disabled={saving || newFiles.length === 0} variant="contained">Add Images</Button>
         </DialogActions>
       </Dialog>
     </Box>

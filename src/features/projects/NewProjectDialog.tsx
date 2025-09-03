@@ -10,7 +10,7 @@ import Typography from "@mui/material/Typography";
 import CircularProgress from "@mui/material/CircularProgress";
 import { addProject, type Project, listProjects } from "../../lib/db";
 import { saveImageToAppDir } from "../../lib/fs";
-import { compressImageStandard, shouldCompress } from "../../lib/image";
+// Removed image compression imports - images are saved as-is for projects
 import { FormControl, InputLabel, MenuItem, Select } from "@mui/material";
 
 type Props = { open: boolean; onClose: () => void; onSaved?: (projectId: string) => void };
@@ -24,7 +24,7 @@ export default function NewProjectDialog({ open, onClose, onSaved }: Props) {
   const [website, setWebsite] = React.useState<string>("");
   const [dragOver, setDragOver] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
-  const [compressing, setCompressing] = React.useState(false);
+  // Removed compressing state - no compression for project images
   const inputRef = React.useRef<HTMLInputElement | null>(null);
 
   const [toneOption, setToneOption] = React.useState<string>("");
@@ -38,7 +38,6 @@ export default function NewProjectDialog({ open, onClose, onSaved }: Props) {
       setWebsite("");
       setDragOver(false);
       setSaving(false);
-      setCompressing(false);
       setToneOption("");
       setToneCustom("");
     }
@@ -54,23 +53,10 @@ export default function NewProjectDialog({ open, onClose, onSaved }: Props) {
     if (files.length === 0 || !name.trim()) return;
     
     setSaving(true);
-    setCompressing(true);
     try {
-
-      // Compress images before saving
-      const compressedImages = await Promise.all(
-        files.map(async (file) => {
-          if (shouldCompress(file)) {
-            return await compressImageStandard(file);
-          }
-          return file;
-        })
-      );
-
-      setCompressing(false);
-
+      // Save images as-is without compression for projects
       const savedImages = [] as Project["images"];
-      for (const f of compressedImages) {
+      for (const f of files) {
         const meta = await saveImageToAppDir(f);
         savedImages.push(meta);
       }
@@ -97,7 +83,6 @@ export default function NewProjectDialog({ open, onClose, onSaved }: Props) {
       console.error(e);
     } finally {
       setSaving(false);
-      setCompressing(false);
     }
   };
 
@@ -199,24 +184,7 @@ export default function NewProjectDialog({ open, onClose, onSaved }: Props) {
                   sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
                   onLoad={(e) => URL.revokeObjectURL((e.currentTarget as HTMLImageElement).src)}
                 />
-                {shouldCompress(file) && (
-                  <Box
-                    sx={{
-                      position: 'absolute',
-                      top: 4,
-                      right: 4,
-                      bgcolor: 'warning.main',
-                      color: 'warning.contrastText',
-                      px: 1,
-                      py: 0.5,
-                      borderRadius: 1,
-                      fontSize: '0.75rem',
-                      fontWeight: 'bold',
-                    }}
-                  >
-                    Will compress
-                  </Box>
-                )}
+                {/* No compression indicator for project images */}
               </Box>
             ))}
           </Box>
@@ -228,9 +196,8 @@ export default function NewProjectDialog({ open, onClose, onSaved }: Props) {
           onClick={handleSave} 
           disabled={saving || files.length === 0 || !name.trim()} 
           variant="contained"
-          startIcon={compressing ? <CircularProgress size={16} /> : undefined}
         >
-          {compressing ? 'Compressing...' : 'Save Project'}
+          Save Project
         </Button>
       </DialogActions>
     </Dialog>

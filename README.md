@@ -1,7 +1,7 @@
-# Inst Automation
+# CaptionPilot
 
 <div align="center">
-  <img src="src/assets/app-logo.svg" alt="Inst Automation Logo" width="120" height="120">
+  <img src="src/assets/app-logo.svg" alt="CaptionPilot Logo" width="120" height="120">
   
   <h3>AI-Powered Social Media Automation</h3>
   <p>Transform your Instagram and Pinterest presence with intelligent automation</p>
@@ -14,7 +14,7 @@
 
 ## 🚀 Overview
 
-**Inst Automation** is a cutting-edge desktop application that revolutionizes social media management through AI-powered automation. Create, schedule, and publish stunning content across Instagram and Pinterest with intelligent features that save time and maximize engagement.
+**CaptionPilot** is a cutting-edge desktop application that revolutionizes social media management through AI-powered automation. Create, schedule, and publish stunning content across Instagram and Pinterest with intelligent features that save time and maximize engagement.
 
 ### ✨ Key Features
 
@@ -213,7 +213,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ---
 
 <div align="center">
-  <p>Made with ❤️ by the Inst Automation Team</p>
+  <p>Made with ❤️ by the Yevhen Butko</p>
   <p>
     <a href="https://github.com/yourusername/inst-automation">⭐ Star us on GitHub</a> •
     <a href="https://twitter.com/instautomation">🐦 Follow us on Twitter</a> •

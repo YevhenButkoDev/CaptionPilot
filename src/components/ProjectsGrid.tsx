@@ -6,6 +6,7 @@ import { getLibraryHandle, listProjects, type Project, deleteProject } from "../
 import {deleteImageFromDir, getImageUrlFromAppDir} from "../lib/fs";
 import DeleteIcon from '@mui/icons-material/Delete';
 import { confirm } from "@tauri-apps/plugin-dialog";
+import logger, { LogContext } from "../lib/logger";
 
 type GridItem = { id: string; project: Project; imageUrl?: string };
 
@@ -24,7 +25,7 @@ export default function ProjectsGrid() {
         const newCache = new Map<string, string>();
         const projectItems = await Promise.all(
             projects.map(async p => {
-                console.log('project', p)
+                logger.debug(LogContext.DATABASE, 'Loading project', { projectId: p.id, imageCount: p.images.length });
                 const img = p.images[0];
                 if (!img) return { id: p.id, project: p };
                 
@@ -41,7 +42,7 @@ export default function ProjectsGrid() {
                     newCache.set(p.id, url);
                     return { id: p.id, project: p, imageUrl: url } as GridItem;
                 } catch (error) {
-                    console.error("Failed to load project image:", error);
+                    logger.error(LogContext.DATABASE, "Failed to load project image", error, undefined, p.id);
                     return { id: p.id, project: p };
                 }
             })
@@ -95,7 +96,7 @@ export default function ProjectsGrid() {
                                     await deleteProject(item.project.id);
                                     setItems(prev => prev.filter(x => x.id !== item.id));
                                 } catch (e) {
-                                    console.error(e);
+                                    logger.error(LogContext.DATABASE, 'Error during project migration', e);
                                 }
                             }
                         }}

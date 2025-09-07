@@ -1,5 +1,6 @@
 import { getScheduleConfigByType, listDraftPosts, updateDraftPost, type DraftPost } from './db';
 import {uploadInstagramPostImages} from "./postUpload.ts";
+import logger, { LogContext } from './logger';
 
 /**
  * Background scheduler service that runs every hour to check and publish scheduled posts
@@ -13,11 +14,11 @@ class PostScheduler {
    */
   start() {
     if (this.isRunning) {
-      console.log('🕐 Scheduler: Already running');
+      logger.warn(LogContext.SCHEDULER, 'Scheduler already running');
       return;
     }
 
-    console.log('🚀 Scheduler: Starting background scheduler...');
+    logger.info(LogContext.SCHEDULER, 'Starting background scheduler', { interval: '1 hour' });
     this.isRunning = true;
 
     // Run immediately on start
@@ -28,7 +29,10 @@ class PostScheduler {
       this.checkAndPublishPosts();
     }, 3600000);
 
-    console.log('✅ Scheduler: Background scheduler started (runs every hour)');
+    logger.info(LogContext.SCHEDULER, 'Background scheduler started successfully', { 
+      interval: '1 hour',
+      isRunning: true 
+    });
   }
 
   /**
@@ -40,15 +44,17 @@ class PostScheduler {
       this.intervalId = null;
     }
     this.isRunning = false;
-    console.log('⏹️ Scheduler: Background scheduler stopped');
+    logger.info(LogContext.SCHEDULER, 'Background scheduler stopped', { isRunning: false });
   }
 
   /**
    * Check if it's time to publish posts and publish them
    */
   private async checkAndPublishPosts() {
+    const timer = logger.startTimer(LogContext.SCHEDULER, 'scheduled check');
+    
     try {
-      console.log('🔍 Scheduler: Checking for posts to publish...');
+      logger.debug(LogContext.SCHEDULER, 'Starting scheduled check for posts to publish');
       
       // Check Instagram schedule
       await this.checkInstagramSchedule();
@@ -56,8 +62,10 @@ class PostScheduler {
       // Check Pinterest schedule (if needed in the future)
       // await this.checkPinterestSchedule();
       
+      timer();
     } catch (error) {
-      console.error('❌ Scheduler: Error during scheduled check:', error);
+      logger.error(LogContext.SCHEDULER, 'Error during scheduled check', error);
+      timer();
     }
   }
 
@@ -69,12 +77,11 @@ class PostScheduler {
       const schedule = await getScheduleConfigByType('instagram');
       
       if (!schedule || !schedule.isActive) {
-        console.log('📝 Scheduler: No active Instagram schedule found');
+        logger.logSchedulerCheck('instagram', false);
         return;
       }
 
-      console.log('📸 Scheduler: Found active Instagram schedule');
-      console.log(`   ⏰ Hours between posts: ${schedule.hoursBetweenPosts}`);
+      logger.logSchedulerCheck('instagram', true, schedule.hoursBetweenPosts);
 
       // Get all published posts to find the most recent publication time
       const allPosts = await listDraftPosts();
@@ -88,7 +95,10 @@ class PostScheduler {
         ? Math.max(...publishedPosts.map(post => post.createdAt))
         : 0;
 
-      console.log(`   🕐 Last published post: ${lastPublishedTime ? new Date(lastPublishedTime).toISOString() : 'Never'}`);
+      logger.debug(LogContext.SCHEDULER, 'Last published post analysis', {
+        lastPublishedTime: lastPublishedTime ? new Date(lastPublishedTime).toISOString() : 'Never',
+        publishedPostsCount: publishedPosts.length
+      });
 
       // Check if enough time has passed since last publication
       const now = Date.now();
@@ -97,29 +107,38 @@ class PostScheduler {
 
       if (timeSinceLastPost < requiredInterval) {
         const hoursRemaining = Math.ceil((requiredInterval - timeSinceLastPost) / (60 * 60 * 1000));
-        console.log(`⏳ Scheduler: Not enough time passed. ${hoursRemaining} hours remaining until next post`);
+        logger.logSchedulerTimeNotReady(hoursRemaining);
+
         return;
       }
 
-      console.log('✅ Scheduler: Time to publish a new Instagram post!');
+      logger.info(LogContext.SCHEDULER, 'Time to publish a new Instagram post', {
+        timeSinceLastPost: Math.round(timeSinceLastPost / (60 * 60 * 1000)),
+        requiredInterval: schedule.hoursBetweenPosts
+      });
 
       // Find the next post to publish
       const nextPost = await this.findNextPostToPublish();
       
       if (!nextPost) {
-        console.log('📭 Scheduler: No unpublished posts found');
+        logger.logSchedulerNoPostsAvailable();
         return;
       }
 
-      console.log(`📸 Scheduler: Publishing post: ${nextPost.id}`);
+      logger.logSchedulerPostFound(
+        nextPost.id, 
+        nextPost.position || -1, 
+        nextPost.caption.substring(0, 50), 
+        nextPost.images.length
+      );
 
       // Publish the post
       await this.publishPost(nextPost);
 
-      console.log('🎉 Scheduler: Post published successfully!');
+      logger.info(LogContext.SCHEDULER, 'Post published successfully', { postId: nextPost.id });
 
     } catch (error) {
-      console.error('❌ Scheduler: Error checking Instagram schedule:', error);
+      logger.error(LogContext.SCHEDULER, 'Error checking Instagram schedule', error);
     }
   }
 
@@ -149,16 +168,17 @@ class PostScheduler {
       });
 
       const nextPost = sortedPosts[0];
-      console.log(`📋 Scheduler: Selected post for publishing:`);
-      console.log(`   🆔 Post ID: ${nextPost.id}`);
-      console.log(`   📍 Position: ${nextPost.position}`);
-      console.log(`   📝 Caption: ${nextPost.caption.substring(0, 50)}...`);
-      console.log(`   🖼️ Images: ${nextPost.images.length}`);
+      logger.debug(LogContext.SCHEDULER, 'Post selected for publishing', {
+        postId: nextPost.id,
+        position: nextPost.position,
+        captionPreview: nextPost.caption.substring(0, 50),
+        imageCount: nextPost.images.length
+      });
 
       return nextPost;
 
     } catch (error) {
-      console.error('❌ Scheduler: Error finding next post:', error);
+      logger.error(LogContext.SCHEDULER, 'Error finding next post', error);
       return null;
     }
   }
@@ -167,15 +187,25 @@ class PostScheduler {
    * Publish a post to Instagram
    */
   private async publishPost(post: DraftPost) {
+    const timer = logger.startTimer(LogContext.SCHEDULER, 'publish post', post.id);
+    
     try {
-      console.log(`🚀 Scheduler: Starting to publish post ${post.id}...`);
+      logger.info(LogContext.SCHEDULER, 'Starting post publication', {
+        postId: post.id,
+        imageCount: post.images.length,
+        captionLength: post.caption.length
+      }, post.id);
 
       const result = await uploadInstagramPostImages(post, {
         folder: 'instagram-posts',
         tags: ['social-media', 'automated']
       });
 
-      console.log(`✅ Scheduler: Instagram post published successfully!`);
+      logger.info(LogContext.SCHEDULER, 'Instagram post published successfully', {
+        postId: post.id,
+        instagramPostId: result.instagramPostId,
+        instagramContainerId: result.instagramContainerId
+      }, post.id);
 
       // Update post status to published
       const updatedPost: DraftPost = {
@@ -187,10 +217,19 @@ class PostScheduler {
 
       await updateDraftPost(updatedPost);
 
-      console.log(`📝 Scheduler: Post status updated to published`);
+      logger.info(LogContext.SCHEDULER, 'Post status updated to published', {
+        postId: post.id,
+        status: 'published'
+      }, post.id);
+
+      timer();
 
     } catch (error) {
-      console.error(`❌ Scheduler: Error publishing post ${post.id}:`, error);
+      logger.error(LogContext.SCHEDULER, `Error publishing post ${post.id}`, error, {
+        postId: post.id,
+        imageCount: post.images.length
+      }, post.id);
+      timer();
       throw error;
     }
   }
@@ -209,7 +248,7 @@ class PostScheduler {
    * Manually trigger a check (useful for testing)
    */
   async triggerCheck() {
-    console.log('🔧 Scheduler: Manual trigger requested');
+    logger.info(LogContext.SCHEDULER, 'Manual trigger requested');
     await this.checkAndPublishPosts();
   }
 }

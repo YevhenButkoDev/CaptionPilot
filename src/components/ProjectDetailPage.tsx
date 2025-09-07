@@ -6,6 +6,7 @@ import { getImageUrlFromAppDir, saveImageToAppDir } from "../lib/fs";
 // Removed image compression imports - images are saved as-is for projects
 import {confirm} from "@tauri-apps/plugin-dialog";
 import LazyImage from "./LazyImage";
+import logger, { LogContext } from "../lib/logger";
 
 function renderMarkdownToHtml(src: string): string {
   let html = src.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -45,7 +46,7 @@ export default function ProjectDetailPage({ projectId, onBack }: ProjectDetailPa
         const urlsList = await Promise.all(projectData.images.map(img => getImageUrlFromAppDir(img.fileName)));
         setImageUrls(urlsList);
       }
-    } catch (error) { console.error("Failed to load project:", error); setError("Failed to load project"); }
+    } catch (error) { logger.error(LogContext.DATABASE, "Failed to load project", error); setError("Failed to load project"); }
     finally { setLoading(false); }
   };
 
@@ -67,7 +68,7 @@ export default function ProjectDetailPage({ projectId, onBack }: ProjectDetailPa
         newUrls.splice(imageIndex, 1);
         setImageUrls(newUrls);
       } catch (error) {
-        console.error("Failed to remove image:", error);
+        logger.error(LogContext.DATABASE, "Failed to remove image", error);
       }
     }
   };
@@ -93,7 +94,7 @@ export default function ProjectDetailPage({ projectId, onBack }: ProjectDetailPa
         setImageUrls(prev => [...prev, ...newUrls]);
       }
       setAddImagesOpen(false); setNewFiles([]);
-    } catch (e) { console.error("Failed to add images:", e); }
+    } catch (e) { logger.error(LogContext.DATABASE, "Failed to add images", e); }
     finally { setSaving(false); }
   };
 

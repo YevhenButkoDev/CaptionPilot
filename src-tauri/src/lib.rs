@@ -1,4 +1,5 @@
 use tauri::Manager;
+use tauri_plugin_log::{Builder as LogBuilder, Target, TargetKind};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -9,15 +10,18 @@ pub fn run() {
                     let window = app.get_webview_window("main").unwrap();
                     window.open_devtools();
                   }
-      if cfg!(debug_assertions) {
-        app.handle().plugin(
-          tauri_plugin_log::Builder::default()
-            .level(log::LevelFilter::Info)
-            .build(),
-        )?;
-      }
-      Ok(())
+        Ok(())
     })
+    .plugin(
+          LogBuilder::default()
+            .level(log::LevelFilter::Debug)          // adjust as needed
+            .target(Target::new(
+                TargetKind::LogDir {
+                  file_name: Some("logs".to_string()),
+                },
+              ))
+            .build()
+        )
     .plugin(tauri_plugin_fs::init())
     .plugin(tauri_plugin_dialog::init())
     .run(tauri::generate_context!())

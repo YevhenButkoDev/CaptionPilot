@@ -1,6 +1,8 @@
 // File System helpers
 // Browser FSA fallback + Tauri app-dir storage when available
 
+import logger, { LogContext } from './logger';
+
 export async function pickLibraryDir(): Promise<FileSystemDirectoryHandle> {
   // @ts-expect-error: showDirectoryPicker is not in lib.dom yet in all TS versions
   const handle: FileSystemDirectoryHandle = await window.showDirectoryPicker();
@@ -139,7 +141,7 @@ async function ensureImageDir(): Promise<string> {
   }
 
   const imagesDirExists = await fs.exists('images', {
-    baseDir: fs.BaseDirectory.AppData,
+    baseDir: base,
   });
 
   if (!imagesDirExists) {
@@ -186,39 +188,17 @@ export async function getImageUrlFromAppDir(fileName: string): Promise<string> {
     const base = await path.appDataDir();
     const absPath = await path.join(base, relDir, fileName);
 
-    console.log('Image path:', { fileName, relDir, base, absPath });
+    logger.debug(LogContext.IMAGE_PROCESSING, 'Image path resolved', { fileName, relDir, base, absPath });
 
     // make it WebView-safe
     const url = tauri.convertFileSrc(absPath);
-    console.log('Converted URL:', url);
+    logger.debug(LogContext.IMAGE_PROCESSING, 'Converted URL', { url });
     
-    // Test if the URL is accessible
-    try {
-      const testResponse = await fetch(url);
-      if (testResponse.ok) {
-        console.log('Image URL is accessible');
-        return url;
-      } else {
-        console.warn('Image URL not accessible, status:', testResponse.status);
-      }
-    } catch (fetchError) {
-      console.warn('Failed to fetch image URL:', fetchError);
-    }
-    
-    // Fallback: try to create a blob URL from the file
-    try {
-      const { fs } = await tauriImports();
-      const fileBytes = await fs.readFile(absPath, { baseDir: fs.BaseDirectory.AppData });
-      const blob = new Blob([fileBytes], { type: 'application/octet-stream' });
-      const blobUrl = URL.createObjectURL(blob);
-      console.log('Created fallback blob URL:', blobUrl);
-      return blobUrl;
-    } catch (blobError) {
-      console.error('Failed to create blob URL:', blobError);
-      throw new Error(`Failed to load image: ${fileName}`);
-    }
+    // In production, Tauri's convertFileSrc should work reliably
+    // Skip the fetch test as it can cause CORS issues in production
+    return url;
   } catch (error) {
-    console.error('Error getting image URL:', error);
+    logger.error(LogContext.IMAGE_PROCESSING, 'Error getting image URL', error);
     throw error;
   }
 }
@@ -281,7 +261,7 @@ export async function listProjectAssets(): Promise<{ fileName: string; mimeType:
     
     return assets.filter(Boolean) as { fileName: string; mimeType: string; size: number }[];
   } catch (error) {
-    console.error('Error listing project assets:', error);
+    logger.error(LogContext.IMAGE_PROCESSING, 'Error listing project assets', error);
     return [];
   }
 }

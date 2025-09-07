@@ -7,9 +7,9 @@ import Button from "@mui/material/Button";
 import TextField from "@mui/material/TextField";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
-import CircularProgress from "@mui/material/CircularProgress";
 import { addProject, type Project, listProjects } from "../../lib/db";
 import { saveImageToAppDir } from "../../lib/fs";
+import logger, { LogContext } from "../../lib/logger";
 // Removed image compression imports - images are saved as-is for projects
 import { FormControl, InputLabel, MenuItem, Select } from "@mui/material";
 
@@ -79,8 +79,7 @@ export default function NewProjectDialog({ open, onClose, onSaved }: Props) {
       onSaved?.(id);
       onClose();
     } catch (e) {
-      // eslint-disable-next-line no-console
-      console.error(e);
+      logger.error(LogContext.DATABASE, "Failed to create project", e);
     } finally {
       setSaving(false);
     }

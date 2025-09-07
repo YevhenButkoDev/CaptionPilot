@@ -5,7 +5,8 @@ import {
   Typography, 
   Grid,
   CircularProgress,
-  Alert
+  Alert,
+  Button
 } from "@mui/material";
 import InstagramIcon from '@mui/icons-material/Instagram';
 import PinterestIcon from '@mui/icons-material/Pinterest';
@@ -20,6 +21,7 @@ import {
   listSchedules 
 } from "../lib/db";
 import { listProjectAssets } from "../lib/fs";
+import logger, {LogContext, testLogger} from "../lib/logger";
 
 interface DashboardMetrics {
   instagramPosts: number;
@@ -71,7 +73,7 @@ export default function Dashboard() {
         scheduledPosts
       });
     } catch (err) {
-      console.error('Error loading dashboard metrics:', err);
+      logger.error(LogContext.DATABASE, 'Error loading dashboard metrics', err);
       setError('Failed to load dashboard data');
     } finally {
       setLoading(false);
@@ -195,6 +197,24 @@ export default function Dashboard() {
           </Grid>
         ))}
       </Grid>
+      
+      {/* Logger Test Button */}
+      <Box sx={{ mt: 4, textAlign: 'center' }}>
+        <Button 
+          variant="outlined" 
+          onClick={testLogger}
+          sx={{ 
+            borderColor: '#1976d2',
+            color: '#1976d2',
+            '&:hover': {
+              borderColor: '#1565c0',
+              backgroundColor: 'rgba(25, 118, 210, 0.04)'
+            }
+          }}
+        >
+          Test Logger (Check AppData Logs)
+        </Button>
+      </Box>
     </Box>
   );
 }

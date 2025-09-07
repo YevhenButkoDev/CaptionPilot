@@ -11,6 +11,7 @@ import { MenuItem, Select, FormControl, InputLabel, Button, TextField, Alert, Ci
 import {confirm} from "@tauri-apps/plugin-dialog";
 import { uploadInstagramPostImages, hasCloudinaryImages } from "../../lib/postUpload";
 import { canUseCloudinary } from "../../lib/cloudinaryUtils";
+import logger, { LogContext } from "../../lib/logger";
 
 interface PostDetailModalProps {
   post: DraftPost | null;
@@ -52,7 +53,7 @@ export default function PostDetailModal({ post, open, onClose, onDelete, onPostU
       );
       setImageUrls(urls);
     } catch (error) {
-      console.error("Failed to load images:", error);
+      logger.error(LogContext.DATABASE, "Failed to load images", error);
     } finally {
       setLoading(false);
     }
@@ -315,7 +316,7 @@ export default function PostDetailModal({ post, open, onClose, onDelete, onPostU
               color="primary"
               size="small"
               onClick={handlePublish}
-              disabled={publishing || !canUseCloudinary() || hasCloudinaryImages(post) || post.instagramPostId}
+              disabled={publishing || !canUseCloudinary() || hasCloudinaryImages(post) || post.instagramPostId !== null}
               startIcon={publishing ? <CircularProgress size={16} /> : <CloudUpload />}
               sx={{ flex: 1 }}
             >

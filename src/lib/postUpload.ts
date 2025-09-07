@@ -1,7 +1,8 @@
 import { uploadMultipleImagesToCloudinary, getCloudinaryConfig, applyTransformation, type CloudinaryUploadResult, type CloudinaryError } from './cloudinary';
 import { updateDraftPost, updatePinterestPost, type DraftPost, type PinterestPost } from './db';
-import { getImageUrlFromAppDir } from './fs';
+import { getImageUrlFromAppDir, tauriImports } from './fs';
 import { publishInstagramPost, type InstagramConfig } from './instagram';
+import logger, { LogContext } from './logger';
 
 export interface UploadResult {
   success: boolean;
@@ -9,6 +10,56 @@ export interface UploadResult {
   instagramPostId?: string;
   instagramContainerId?: string;
   error?: string;
+}
+
+// Helper function to load image file with fallback for production
+async function loadImageFile(imageMeta: { fileName: string; mimeType: string; size: number }): Promise<File | null> {
+  try {
+    // Get the image URL from the app directory (Tauri approach)
+    const imageUrl = await getImageUrlFromAppDir(imageMeta.fileName);
+    if (!imageUrl) {
+      logger.warn(LogContext.POST_UPLOAD, `Image not found in app directory: ${imageMeta.fileName}`);
+      return null;
+    }
+    
+    // Try to fetch the image as a blob and convert to File
+    try {
+      const response = await fetch(imageUrl);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch image: ${response.statusText}`);
+      }
+      
+      const blob = await response.blob();
+      const file = new File([blob], imageMeta.fileName, {
+        type: imageMeta.mimeType,
+        lastModified: Date.now()
+      });
+      
+      logger.debug(LogContext.POST_UPLOAD, 'Successfully loaded image from URL', { fileName: imageMeta.fileName });
+      return file;
+    } catch (fetchError) {
+      // Fallback: try to read the file directly from the file system
+      logger.warn(LogContext.POST_UPLOAD, 'Fetch failed, trying direct file read', { fileName: imageMeta.fileName, error: fetchError });
+      
+      const { fs, path } = await tauriImports();
+      
+      const base = await path.appDataDir();
+      const absPath = await path.join(base, 'images', imageMeta.fileName);
+      
+      const fileBytes = await fs.readFile(absPath, { baseDir: fs.BaseDirectory.AppData });
+      const blob = new Blob([fileBytes], { type: imageMeta.mimeType });
+      const file = new File([blob], imageMeta.fileName, {
+        type: imageMeta.mimeType,
+        lastModified: Date.now()
+      });
+      
+      logger.debug(LogContext.POST_UPLOAD, 'Successfully loaded image from direct file read', { fileName: imageMeta.fileName });
+      return file;
+    }
+  } catch (error) {
+    logger.error(LogContext.POST_UPLOAD, 'Error loading image file', error);
+    return null;
+  }
 }
 
 /**
@@ -38,28 +89,15 @@ export async function uploadInstagramPostImages(
     const imageFiles: File[] = [];
     
     for (const imageMeta of post.images) {
-      try {
-        // Read the local image file
-        const imageUrl = await getImageUrlFromAppDir(imageMeta.fileName);
-        
-        // Convert the image URL to a File object
-        const response = await fetch(imageUrl);
-        const blob = await response.blob();
-        
-        // Create a File object with the original metadata
-        const file = new File([blob], imageMeta.fileName, {
-          type: imageMeta.mimeType,
-          lastModified: Date.now()
-        });
-        
-        imageFiles.push(file);
-      } catch (error) {
-        console.error(`Failed to read image ${imageMeta.fileName}:`, error);
+      const file = await loadImageFile(imageMeta);
+      if (!file) {
+        logger.error(LogContext.POST_UPLOAD, `Failed to load image ${imageMeta.fileName}`);
         return {
           success: false,
-          error: `Failed to read local image: ${imageMeta.fileName}`
+          error: `Failed to load image ${imageMeta.fileName}`
         };
       }
+      imageFiles.push(file);
     }
     
     if (imageFiles.length === 0) {
@@ -107,12 +145,15 @@ export async function uploadInstagramPostImages(
 
     // Now automatically publish to Instagram
     try {
-      console.log('🚀 Post Upload: Starting Instagram publishing workflow...');
+      logger.info(LogContext.POST_UPLOAD, 'Starting Instagram publishing workflow', {
+        postId: post.id,
+        imageCount: post.images.length
+      }, post.id);
       
       // Get Instagram configuration from settings
       const settings = localStorage.getItem('app-settings');
       if (!settings) {
-        console.warn('⚠️  Post Upload: No app settings found, skipping Instagram publishing');
+        logger.warn(LogContext.POST_UPLOAD, 'No app settings found, skipping Instagram publishing');
         return {
           success: true,
           cloudinaryImages: successfulUploads
@@ -121,14 +162,16 @@ export async function uploadInstagramPostImages(
 
       const appSettings = JSON.parse(settings);
       if (!appSettings.instagramUserToken) {
-        console.warn('⚠️  Post Upload: Instagram user token not configured, skipping Instagram publishing');
+        logger.warn(LogContext.POST_UPLOAD, 'Instagram user token not configured, skipping Instagram publishing');
         return {
           success: true,
           cloudinaryImages: successfulUploads
         };
       }
 
-      console.log('✅ Post Upload: Instagram credentials found, proceeding with publishing...');
+      logger.info(LogContext.POST_UPLOAD, 'Instagram credentials found, proceeding with publishing', {
+        hasUserToken: !!appSettings.instagramUserToken
+      }, post.id);
       
       const instagramConfig: InstagramConfig = {
         userToken: appSettings.instagramUserToken
@@ -136,19 +179,22 @@ export async function uploadInstagramPostImages(
 
       // Get Cloudinary URLs for Instagram publishing
       const imageUrls = successfulUploads.map(img => img.secureUrl);
-      console.log('🖼️  Post Upload: Cloudinary URLs prepared for Instagram:', imageUrls.length, 'images');
+      logger.debug(LogContext.POST_UPLOAD, 'Cloudinary URLs prepared for Instagram', {
+        imageCount: imageUrls.length
+      }, post.id);
       
       // Publish to Instagram
-      console.log('📤 Post Upload: Calling Instagram publishing API...');
+      logger.debug(LogContext.POST_UPLOAD, 'Calling Instagram publishing API', undefined, post.id);
       const instagramResult = await publishInstagramPost(
         instagramConfig,
         imageUrls,
         post.caption
       );
 
-      console.log('🎉 Post Upload: Instagram publishing successful!');
-      console.log('   🆔 Instagram Container ID:', instagramResult.containerId);
-      console.log('   🆔 Instagram Post ID:', instagramResult.publishedPostId);
+      logger.info(LogContext.POST_UPLOAD, 'Instagram publishing successful', {
+        containerId: instagramResult.containerId,
+        publishedPostId: instagramResult.publishedPostId
+      }, post.id);
       
       // Update the post with Instagram IDs (status remains 'new' since we use instagramPostId as indicator)
       const finalUpdatedPost: DraftPost = {
@@ -158,9 +204,12 @@ export async function uploadInstagramPostImages(
       };
 
       // Save Instagram IDs and published status to database
-      console.log('💾 Post Upload: Saving Instagram IDs and published status to database...');
+      logger.debug(LogContext.POST_UPLOAD, 'Saving Instagram IDs and published status to database', undefined, post.id);
       await updateDraftPost(finalUpdatedPost);
-      console.log('✅ Post Upload: Database updated successfully');
+      logger.info(LogContext.POST_UPLOAD, 'Database updated successfully', {
+        instagramPostId: instagramResult.publishedPostId,
+        instagramContainerId: instagramResult.containerId
+      }, post.id);
 
       return {
         success: true,
@@ -169,15 +218,14 @@ export async function uploadInstagramPostImages(
         instagramContainerId: instagramResult.containerId
       };
     } catch (instagramError) {
-      console.error('❌ Post Upload: Instagram publishing failed:', instagramError);
-      console.error('   📍 Error details:', {
+      logger.error(LogContext.POST_UPLOAD, 'Instagram publishing failed', instagramError, {
         message: instagramError instanceof Error ? instagramError.message : 'Unknown error',
         stack: instagramError instanceof Error ? instagramError.stack : undefined
-      });
+      }, post.id);
       
       // Return success for Cloudinary upload but include Instagram error
       // Post remains unpublished since Instagram failed
-      console.log('⚠️  Post Upload: Instagram failed, but Cloudinary succeeded. Post remains unpublished.');
+      logger.warn(LogContext.POST_UPLOAD, 'Instagram failed, but Cloudinary succeeded. Post remains unpublished', undefined, post.id);
       
       return {
         success: true,
@@ -220,28 +268,15 @@ export async function uploadPinterestPostImages(
     const imageFiles: File[] = [];
     
     for (const imageMeta of post.images) {
-      try {
-        // Read the local image file
-        const imageUrl = await getImageUrlFromAppDir(imageMeta.fileName);
-        
-        // Convert the image URL to a File object
-        const response = await fetch(imageUrl);
-        const blob = await response.blob();
-        
-        // Create a File object with the original metadata
-        const file = new File([blob], imageMeta.fileName, {
-          type: imageMeta.mimeType,
-          lastModified: Date.now()
-        });
-        
-        imageFiles.push(file);
-      } catch (error) {
-        console.error(`Failed to read image ${imageMeta.fileName}:`, error);
+      const file = await loadImageFile(imageMeta);
+      if (!file) {
+        logger.error(LogContext.POST_UPLOAD, `Failed to load image ${imageMeta.fileName}`);
         return {
           success: false,
-          error: `Failed to read local image: ${imageMeta.fileName}`
+          error: `Failed to load image ${imageMeta.fileName}`
         };
       }
+      imageFiles.push(file);
     }
     
     if (imageFiles.length === 0) {
@@ -328,7 +363,7 @@ export async function uploadPostImages(
  */
 export function hasCloudinaryImages(post: DraftPost | PinterestPost): boolean {
   if ('cloudinaryImages' in post) {
-    return post.cloudinaryImages && post.cloudinaryImages.length > 0;
+    return post.cloudinaryImages !== undefined && post.cloudinaryImages.length > 0;
   }
   return false;
 }

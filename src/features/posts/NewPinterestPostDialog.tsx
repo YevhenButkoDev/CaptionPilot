@@ -11,6 +11,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import { addPinterestPost, type PinterestPost } from "../../lib/db";
 import { saveImageToAppDir } from "../../lib/fs";
 import { compressImageStandard, shouldCompress } from "../../lib/image";
+import logger, { LogContext } from "../../lib/logger";
 import { cropImageToFormat, type PostFormat, getFormatDisplayName, getFormatDimensions } from "../../lib/imageProcessing";
 
 type Props = { open: boolean; onClose: () => void; onSaved?: (postId: string) => void };
@@ -102,7 +103,7 @@ export default function NewPinterestPostDialog({ open, onClose, onSaved }: Props
       onSaved?.(id);
       onClose();
     } catch (e) {
-      console.error(e);
+      logger.error(LogContext.DATABASE, "Failed to create Pinterest post", e);
     } finally {
       setSaving(false);
       setCompressing(false);

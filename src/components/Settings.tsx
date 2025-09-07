@@ -11,6 +11,7 @@ import {
   InputAdornment
 } from "@mui/material";
 import { Visibility, VisibilityOff, Save, Refresh } from "@mui/icons-material";
+import logger, { LogContext } from "../lib/logger";
 
 
 interface SettingsData {
@@ -61,7 +62,7 @@ export default function Settings() {
         setSettings(parsedSettings);
       }
     } catch (error) {
-      console.error("Failed to load settings:", error);
+      logger.error(LogContext.DATABASE, "Failed to load settings", error);
       setError("Failed to load saved settings");
     }
   };
@@ -73,7 +74,7 @@ export default function Settings() {
       setError(null);
       setTimeout(() => setSaved(false), 3000);
     } catch (error) {
-      console.error("Failed to save settings:", error);
+      logger.error(LogContext.DATABASE, "Failed to save settings", error);
       setError("Failed to save settings");
     }
   };

@@ -1,6 +1,8 @@
 // Minimal IndexedDB wrapper for storing a library handle and draft posts
 // Requires browser support for File System Access API and structured cloning of handles
 
+import logger, { LogContext } from './logger';
+
 export type DraftPost = {
   id: string;
   createdAt: number;
@@ -66,7 +68,6 @@ export type Schedule = {
   amountOfPostsPerWeek: number; // Keep for backward compatibility
   hoursBetweenPosts: number; // New field for hours between posts
   isActive: boolean; // New field to indicate if schedule is currently active
-  lastPublishedAt?: number; // Track when last post was published
   createdAt: number;
   updatedAt: number;
 };
@@ -486,9 +487,7 @@ export async function deleteSchedule(id: string): Promise<void> {
 }
 
 // Additional Schedule helper functions
-export async function getSchedulesByProject(projectId: string): Promise<PostSchedule[]> {
-  return listSchedulesByProject(projectId);
-}
+
 
 export async function deleteSchedulesByProject(projectId: string): Promise<void> {
   const schedules = await listSchedulesByProject(projectId);
@@ -497,16 +496,7 @@ export async function deleteSchedulesByProject(projectId: string): Promise<void>
   }
 }
 
-export async function updateSchedule(schedule: PostSchedule): Promise<void> {
-  const db = await openDb();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_SCHEDULES, 'readwrite');
-    const store = tx.objectStore(STORE_SCHEDULES);
-    const req = store.put(schedule);
-    req.onsuccess = () => resolve();
-    req.onerror = () => reject(req.error);
-  });
-}
+
 
 // Schedule configuration functions for the ScheduleButton component
 export async function addScheduleConfig(schedule: Schedule): Promise<void> {
@@ -610,7 +600,7 @@ export async function deleteProject(id: string): Promise<void> {
       await deleteGeneratorTemplate(template.id);
     }
   } catch (error) {
-    console.error("Failed to delete related data for project:", id, error);
+    logger.error(LogContext.DATABASE, "Failed to delete related data for project", error, { projectId: id });
     // Continue with project deletion even if cascade fails
   }
 

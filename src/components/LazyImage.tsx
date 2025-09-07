@@ -7,7 +7,7 @@ interface LazyImageProps {
   alt: string;
   sx?: object;
   onClick?: () => void;
-  onLoad?: () => void;
+  onLoad?: (e: any) => void;
   onError?: () => void;
   placeholder?: React.ReactNode;
   errorPlaceholder?: React.ReactNode;
@@ -20,14 +20,13 @@ export default function LazyImage({
   onClick,
   onLoad,
   onError,
-  placeholder,
   errorPlaceholder,
 }: LazyImageProps) {
   const { ref, imageSrc, isLoaded, hasError, onLoad: handleLoad, onError: handleError } = useLazyImage(src);
 
   const handleImageLoad = () => {
     handleLoad();
-    onLoad?.();
+    onLoad?.(null);
   };
 
   const handleImageError = () => {

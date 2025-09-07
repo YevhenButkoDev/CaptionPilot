@@ -15,6 +15,7 @@ import {
 } from "@mui/material";
 import { listProjects, type Project } from "../lib/db";
 import { addPinterestPost, type PinterestPost } from "../lib/db";
+import logger, { LogContext } from "../lib/logger";
 
 export default function PinterestPostGenerator() {
   const [projects, setProjects] = React.useState<Project[]>([]);
@@ -89,7 +90,7 @@ export default function PinterestPostGenerator() {
       );
       setSuccess(`Successfully generated ${generatedPosts.length} Pinterest posts!`);
     } catch (error) {
-      console.error("Failed to generate Pinterest posts:", error);
+      logger.error(LogContext.POST_GENERATION, "Failed to generate Pinterest posts", error);
       setError("Failed to generate Pinterest posts");
     } finally {
       setGenerating(false);
@@ -126,6 +127,7 @@ export default function PinterestPostGenerator() {
         projectId: project.id,
         websiteUrl: websiteUrl || undefined,
         status: 'new',
+        postFormat: '1:1'
       };
 
       await addPinterestPost(post);

@@ -11,6 +11,7 @@ import { Button, TextField, Alert, CircularProgress } from "@mui/material";
 import { confirm } from "@tauri-apps/plugin-dialog";
 import { uploadPinterestPostImages, hasCloudinaryImages } from "../../lib/postUpload";
 import { canUseCloudinary } from "../../lib/cloudinaryUtils";
+import logger, { LogContext } from "../../lib/logger";
 
 interface PinterestPostDetailModalProps {
   post: PinterestPost | null;
@@ -52,7 +53,7 @@ export default function PinterestPostDetailModal({ post, open, onClose, onDelete
       );
       setImageUrls(urls);
     } catch (error) {
-      console.error("Failed to load images:", error);
+      logger.error(LogContext.DATABASE, "Failed to load images", error);
     } finally {
       setLoading(false);
     }
@@ -97,7 +98,7 @@ export default function PinterestPostDetailModal({ post, open, onClose, onDelete
       await updatePinterestPost(updated);
       onPostUpdated?.(updated);
     } catch (error) {
-      console.error("Failed to save Pinterest post:", error);
+      logger.error(LogContext.DATABASE, "Failed to save Pinterest post", error);
     } finally {
       setSaving(false);
     }
@@ -293,7 +294,7 @@ export default function PinterestPostDetailModal({ post, open, onClose, onDelete
         <Box sx={{ p: 3 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
             <Typography variant="h6">Edit Pinterest Post</Typography>
-            {post.instagramPostId && (
+            {(post.cloudinaryImages && post.cloudinaryImages.length > 0) && (
               <Box sx={{ 
                 display: 'flex', 
                 alignItems: 'center', 
@@ -337,13 +338,13 @@ export default function PinterestPostDetailModal({ post, open, onClose, onDelete
             </Alert>
           )}
 
-          {post.instagramPostId && (
+          {post.id && (
             <Alert severity="success" sx={{ mb: 2, fontSize: "0.875rem" }}>
               This post has been published to Instagram and is ready for social media posting.
             </Alert>
           )}
 
-          {hasCloudinaryImages(post) && !post.instagramPostId && (
+          {hasCloudinaryImages(post) && !post.id && (
             <Alert severity="info" sx={{ mb: 2, fontSize: "0.875rem" }}>
               This post already has images uploaded to Cloudinary.
             </Alert>
@@ -383,11 +384,11 @@ export default function PinterestPostDetailModal({ post, open, onClose, onDelete
               variant="contained"
               color="primary"
               onClick={handlePublish}
-              disabled={publishing || !canUseCloudinary() || hasCloudinaryImages(post) || post.instagramPostId}
+              disabled={publishing || !canUseCloudinary() || hasCloudinaryImages(post) || post.id !== undefined}
               startIcon={publishing ? <CircularProgress size={16} /> : <CloudUpload />}
               sx={{ flex: 1 }}
             >
-              {publishing ? 'Publishing...' : post.instagramPostId ? 'Published' : 'Publish'}
+              {publishing ? 'Publishing...' : (post.cloudinaryImages && post.cloudinaryImages.length > 0) ? 'Published' : 'Publish'}
             </Button>
           </Box>
         </Box>

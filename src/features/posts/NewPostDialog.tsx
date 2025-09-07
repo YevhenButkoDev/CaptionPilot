@@ -12,6 +12,7 @@ import { addDraftPost, type DraftPost } from "../../lib/db";
 import { saveImageToAppDir } from "../../lib/fs";
 import { compressImageForInstagram, shouldCompress } from "../../lib/image";
 import { cropImageToFormat, type PostFormat, getFormatDisplayName, getFormatDimensions } from "../../lib/imageProcessing";
+import logger, { LogContext } from "../../lib/logger";
 
 type Props = { open: boolean; onClose: () => void; onSaved?: (postId: string) => void };
 
@@ -99,8 +100,7 @@ export default function NewPostDialog({ open, onClose, onSaved }: Props) {
       onSaved?.(id);
       onClose();
     } catch (e) {
-      // eslint-disable-next-line no-console
-      console.error(e);
+      logger.error(LogContext.DATABASE, "Failed to create post", e);
     } finally {
       setSaving(false);
       setCompressing(false);

@@ -18,6 +18,7 @@ import {
   updateScheduleConfig, 
   type Schedule 
 } from "../lib/db";
+import logger, { LogContext } from "../lib/logger";
 
 interface ScheduleButtonProps {
   type: 'instagram' | 'pinterest';
@@ -43,7 +44,7 @@ export default function ScheduleButton({ type }: ScheduleButtonProps) {
         setHoursBetweenPosts(hours);
       }
     } catch (error) {
-      console.error('Error loading schedule:', error);
+      logger.error(LogContext.SCHEDULER, 'Error loading schedule', error);
     }
   };
 
@@ -75,7 +76,7 @@ export default function ScheduleButton({ type }: ScheduleButtonProps) {
         setSchedule(newSchedule);
       }
     } catch (error) {
-      console.error('Error updating schedule:', error);
+      logger.error(LogContext.SCHEDULER, 'Error updating schedule', error);
     } finally {
       setLoading(false);
     }
@@ -94,7 +95,7 @@ export default function ScheduleButton({ type }: ScheduleButtonProps) {
       await updateScheduleConfig(updatedSchedule);
       setSchedule(updatedSchedule);
     } catch (error) {
-      console.error('Error pausing schedule:', error);
+      logger.error(LogContext.SCHEDULER, 'Error pausing schedule', error);
     } finally {
       setLoading(false);
     }
@@ -113,7 +114,7 @@ export default function ScheduleButton({ type }: ScheduleButtonProps) {
       await updateScheduleConfig(updatedSchedule);
       setSchedule(updatedSchedule);
     } catch (error) {
-      console.error('Error saving schedule:', error);
+      logger.error(LogContext.SCHEDULER, 'Error saving schedule', error);
     } finally {
       setLoading(false);
     }

@@ -9,6 +9,7 @@ import LazyImage from "./LazyImage";
 import { listPinterestPosts, deletePinterestPost, type PinterestPost } from "../lib/db";
 import { listSchedules } from "../lib/db";
 import { getImageUrlFromAppDir, deleteImageFromAppDir } from "../lib/fs";
+import logger, { LogContext } from "../lib/logger";
 import ScheduleButton from "./ScheduleButton.tsx";
 
 type GridItem = { id: string; url: string; post: PinterestPost };
@@ -55,7 +56,7 @@ export default function PinterestFeed() {
             setBannerNeeded(false);
             setItems(firstImages.filter(Boolean) as GridItem[]);
         } catch (error) {
-            console.error("Failed to load Pinterest posts:", error);
+            logger.error(LogContext.DATABASE, "Failed to load Pinterest posts", error);
             setBannerNeeded(true);
         }
     };
@@ -93,7 +94,7 @@ export default function PinterestFeed() {
             setItems(prev => prev.filter(item => item.id !== postId));
             imageCache.delete(postId);
         } catch (error) {
-            console.error("Failed to delete Pinterest post:", error);
+            logger.error(LogContext.DATABASE, "Failed to delete Pinterest post", error);
         }
     };
 
@@ -235,7 +236,7 @@ function PinterestTile({
                     Scheduled
                 </Box>
             )}
-            {post.instagramPostId && (
+            {(post.cloudinaryImages && post.cloudinaryImages.length > 0) && (
                 <Box
                     sx={{
                         position: "absolute",

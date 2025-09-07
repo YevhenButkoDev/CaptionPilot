@@ -23,6 +23,7 @@ import LazyImage from "./LazyImage";
 import { listDraftPosts, updateDraftPositions, deleteDraftPost, type DraftPost } from "../lib/db";
 import { listSchedules } from "../lib/db";
 import { getImageUrlFromAppDir, deleteImageFromAppDir } from "../lib/fs";
+import logger, {LogContext} from "../lib/logger.ts";
 
 type GridItem = { id: string; url: string; post: DraftPost };
 
@@ -142,7 +143,7 @@ export default function DraggableImageList() {
                 return newCache;
             });
         } catch (error) {
-            console.error("Failed to delete post:", error);
+            logger.error(LogContext.DATABASE, "Failed to delete post", error);
         }
     };
 

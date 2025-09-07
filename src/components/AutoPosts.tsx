@@ -30,27 +30,28 @@ import { addGeneratorTemplate, listGeneratorTemplates, deleteGeneratorTemplate, 
 import { cropImageToFormat } from "../lib/imageProcessing";
 import { saveImageToAppDir, getImageUrlFromAppDir } from "../lib/fs";
 import { compressImageForInstagram, shouldCompress } from "../lib/image";
+import logger, { LogContext } from "../lib/logger";
 
 async function generateCaptionWithOpenAI(prompt: string): Promise<string[] | null> {
   try {
-    console.log('Starting OpenAI API call...');
+    logger.debug(LogContext.POST_GENERATION, 'Starting OpenAI API call');
     
     const savedSettings = localStorage.getItem("app-settings");
     if (!savedSettings) {
-      console.log('No app settings found');
+      logger.warn(LogContext.POST_GENERATION, 'No app settings found');
       return null;
     }
     
     const { openaiSecretKey } = JSON.parse(savedSettings || '{}');
     if (!openaiSecretKey) {
-      console.log('No OpenAI API key found in settings');
+      logger.warn(LogContext.POST_GENERATION, 'No OpenAI API key found in settings');
       return null;
     }
 
-    console.log('OpenAI API key found, making request...');
+    logger.debug(LogContext.POST_GENERATION, 'OpenAI API key found, making request');
 
     const enforcedOutput = 'Output:\n' +
-        '- Return the captions **strictly in JSON format**, nothing else.\n' +
+        '- Return 3 captions **strictly in JSON format**, nothing else.\n' +
         '- JSON schema:\n' +
         '\n' +
         '{\n' +
@@ -73,7 +74,7 @@ async function generateCaptionWithOpenAI(prompt: string): Promise<string[] | nul
     // Remove any existing Output section heuristically
     const cleaned = prompt.replace(/\n?Output[\s\S]*$/i, "").trim() + enforcedOutput;
 
-    console.log('Making fetch request to OpenAI...');
+    logger.debug(LogContext.POST_GENERATION, 'Making fetch request to OpenAI');
     const resp = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -90,36 +91,38 @@ async function generateCaptionWithOpenAI(prompt: string): Promise<string[] | nul
       }),
     });
 
-    console.log('OpenAI response status:', resp.status, resp.statusText);
-    console.log('OpenAI response headers:', Object.fromEntries(resp.headers.entries()));
+    logger.debug(LogContext.POST_GENERATION, 'OpenAI response received', {
+      status: resp.status,
+      statusText: resp.statusText,
+      headers: Object.fromEntries(resp.headers.entries())
+    });
 
     if (!resp.ok) {
       const errorText = await resp.text();
-      console.error('OpenAI API error:', errorText);
+      logger.error(LogContext.POST_GENERATION, 'OpenAI API error', errorText);
       return null;
     }
-    
+
     const data = await resp.json();
-    console.log('OpenAI response data:', data);
+    logger.debug(LogContext.POST_GENERATION, 'OpenAI response data', { data });
     
     const text = data?.choices?.[0]?.message?.content?.trim();
     if (!text) {
-      console.log('No content in OpenAI response');
+      logger.warn(LogContext.POST_GENERATION, 'No content in OpenAI response');
       return null;
     }
-    
+
     try {
       const parsed = JSON.parse(text);
       const captions: string[] = Array.isArray(parsed?.captions) ? parsed.captions.map((c: any) => String(c?.text || "").trim()).filter(Boolean) : [];
-      console.log('Parsed captions:', captions);
+      logger.debug(LogContext.POST_GENERATION, 'Parsed captions', { captions });
       return captions.length ? captions : null;
     } catch (parseError) {
-      console.error('Failed to parse OpenAI response as JSON:', parseError);
-      console.log('Raw response text:', text);
+      logger.error(LogContext.POST_GENERATION, 'Failed to parse OpenAI response as JSON', parseError, { rawText: text });
       return null;
     }
   } catch (error) {
-    console.error('Error in generateCaptionWithOpenAI:', error);
+    logger.error(LogContext.POST_GENERATION, 'Error in generateCaptionWithOpenAI', error);
     return null;
   }
 }
@@ -221,7 +224,7 @@ export default function AutoPosts() {
       const generatedPosts = await generatePostsFromProject(selectedProject, minImages, maxImages, promptInput.trim(), numPosts, userIdeas, moods, generatorHashtags.trim());
       setSuccess(`Successfully generated ${generatedPosts.length} posts!`);
     } catch (error) {
-      console.error("Failed to generate posts:", error);
+      logger.error(LogContext.POST_GENERATION, "Failed to generate posts", error);
       setError("Failed to generate posts");
     } finally {
       setGenerating(false);
@@ -234,25 +237,47 @@ export default function AutoPosts() {
       // Get the image URL from the app directory (Tauri approach)
       const imageUrl = await getImageUrlFromAppDir(imageMeta.fileName);
       if (!imageUrl) {
-        console.warn(`Image not found in app directory: ${imageMeta.fileName}`);
+        logger.warn(LogContext.POST_GENERATION, `Image not found in app directory: ${imageMeta.fileName}`);
         return null;
       }
       
-      // Fetch the image as a blob and convert to File
-      const response = await fetch(imageUrl);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch image: ${response.statusText}`);
+      // Try to fetch the image as a blob and convert to File
+      try {
+        const response = await fetch(imageUrl);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch image: ${response.statusText}`);
+        }
+        
+        const blob = await response.blob();
+        const file = new File([blob], imageMeta.fileName, {
+          type: imageMeta.mimeType,
+          lastModified: Date.now()
+        });
+        
+        logger.debug(LogContext.POST_GENERATION, 'Successfully loaded image from URL', { fileName: imageMeta.fileName });
+        return file;
+      } catch (fetchError) {
+        // Fallback: try to read the file directly from the file system
+        logger.warn(LogContext.POST_GENERATION, 'Fetch failed, trying direct file read', { fileName: imageMeta.fileName, error: fetchError });
+        
+        const { tauriImports } = await import('../lib/fs');
+        const { fs, path } = await tauriImports();
+        
+        const base = await path.appDataDir();
+        const absPath = await path.join(base, 'images', imageMeta.fileName);
+        
+        const fileBytes = await fs.readFile(absPath, { baseDir: fs.BaseDirectory.AppData });
+        const blob = new Blob([fileBytes], { type: imageMeta.mimeType });
+        const file = new File([blob], imageMeta.fileName, {
+          type: imageMeta.mimeType,
+          lastModified: Date.now()
+        });
+        
+        logger.debug(LogContext.POST_GENERATION, 'Successfully loaded image from direct file read', { fileName: imageMeta.fileName });
+        return file;
       }
-      
-      const blob = await response.blob();
-      const file = new File([blob], imageMeta.fileName, {
-        type: imageMeta.mimeType,
-        lastModified: Date.now()
-      });
-      
-      return file;
     } catch (error) {
-      console.error('Error loading image from project:', error);
+      logger.error(LogContext.POST_GENERATION, 'Error loading image from project', error);
       return null;
     }
   };
